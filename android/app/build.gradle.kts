@@ -51,6 +51,7 @@ android {
 
     buildTypes {
         release {
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Without key.properties the release build falls back to the debug key,
             // so `flutter run --release` still works on a fresh checkout.
             signingConfig = if (keystorePropertiesFile.exists()) {
