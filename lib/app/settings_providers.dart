@@ -10,15 +10,19 @@ final sharedPrefsProvider = Provider<SharedPreferences>(
 class ThemeModeNotifier extends Notifier<ThemeMode> {
   static const _key = 'themeMode';
 
+  /// Saved as fixed words, not as the enum's own name: a release build scrambles code names
+  /// (--obfuscate), and a saved setting must mean the same thing in every build.
+  static const _codes = {ThemeMode.system: 'system', ThemeMode.light: 'light', ThemeMode.dark: 'dark'};
+
   @override
   ThemeMode build() {
     final saved = ref.watch(sharedPrefsProvider).getString(_key);
-    return ThemeMode.values.firstWhere((m) => m.name == saved, orElse: () => ThemeMode.system);
+    return _codes.entries.firstWhere((e) => e.value == saved, orElse: () => const MapEntry(ThemeMode.system, 'system')).key;
   }
 
   void set(ThemeMode mode) {
     state = mode;
-    ref.read(sharedPrefsProvider).setString(_key, mode.name);
+    ref.read(sharedPrefsProvider).setString(_key, _codes[mode]!);
   }
 }
 

@@ -33,6 +33,10 @@ class Entries extends Table {
   /// "yyyy-MM-dd", see dates.dart.
   TextColumn get date => text()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Schema version 3: the monthly income ([Recurrings.autoAdd]) that added this entry by
+  /// itself, or null for anything the person typed in.
+  IntColumn get recurringId => integer().nullable()();
 }
 
 /// A day the user confirmed they spent nothing. Keeps the logging streak alive.
@@ -67,6 +71,14 @@ class Recurrings extends Table {
 
   /// "yyyy-MM" of the month the user last confirmed or skipped this item.
   TextColumn get lastHandledMonth => text().nullable()();
+
+  /// Schema version 3. Monthly income that records itself on its day, instead of waiting
+  /// to be confirmed. Bills always keep asking first.
+  BoolColumn get autoAdd => boolean().withDefault(const Constant(false))();
+
+  /// Schema version 3, "yyyy-MM": the first month an automatic item may be added for, so a
+  /// new salary is never filled in backwards into months before it was set up.
+  TextColumn get startMonth => text().nullable()();
 }
 
 class SavingsGoals extends Table {
@@ -112,4 +124,17 @@ class DharPayments extends Table {
 abstract final class DharDirection {
   static const lent = 'lent';
   static const borrowed = 'borrowed';
+}
+
+// ---- Added in schema version 3 ------------------------------------------------
+
+/// A safety copy of everything, made just before "Erase all data" and kept for a week so
+/// the erase can be undone. It lives in the database itself, so it is protected exactly like
+/// the rest of the data, and it is never included in backups.
+class EraseSnapshots extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// The same JSON a backup file holds.
+  TextColumn get payload => text()();
 }

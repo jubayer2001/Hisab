@@ -8,6 +8,7 @@ import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/widgets/amount_field.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/confirm_dialog.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/level_bar.dart';
 import '../../core/widgets/sheet.dart';
@@ -59,13 +60,27 @@ String goalDeadlineText(GoalProgress p) {
   return monthly == null ? 'By $date' : 'By $date · save ${formatTaka(monthly)} a month';
 }
 
-class _GoalCard extends StatelessWidget {
+class _GoalCard extends ConsumerWidget {
   const _GoalCard({required this.progress});
 
   final GoalProgress progress;
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final deposits = (ref.read(depositsProvider).value ?? const <GoalDeposit>[])
+        .where((d) => d.goalId == progress.goal.id)
+        .length;
+    final what = deposits == 0 ? '' : ' and its ${deposits == 1 ? '1 deposit' : '$deposits deposits'}';
+    final ok = await confirmDestructive(
+      context,
+      title: 'Delete this goal?',
+      message: '"${progress.goal.name}"$what will be deleted. '
+          'Money you saved is not counted as spending, so your balance does not change.',
+    );
+    if (ok) await ref.read(databaseProvider).deleteGoal(progress.goal.id);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = context.hisab;
     final color = Color(progress.goal.colorValue);
@@ -91,6 +106,12 @@ class _GoalCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(child: Text(progress.goal.name, style: theme.textTheme.titleMedium)),
               Text('${(progress.fraction * 100).floor()}%', style: theme.textTheme.titleMedium?.copyWith(color: color)),
+              IconButton(
+                tooltip: 'Delete this goal',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => _delete(context, ref),
+                icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
+              ),
             ],
           ),
           const SizedBox(height: 12),

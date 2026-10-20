@@ -550,6 +550,17 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _recurringIdMeta = const VerificationMeta(
+    'recurringId',
+  );
+  @override
+  late final GeneratedColumn<int> recurringId = GeneratedColumn<int>(
+    'recurring_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -560,6 +571,7 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
     note,
     date,
     createdAt,
+    recurringId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -632,6 +644,15 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('recurring_id')) {
+      context.handle(
+        _recurringIdMeta,
+        recurringId.isAcceptableOrUnknown(
+          data['recurring_id']!,
+          _recurringIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -673,6 +694,10 @@ class $EntriesTable extends Entries with TableInfo<$EntriesTable, Entry> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      recurringId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}recurring_id'],
+      ),
     );
   }
 
@@ -695,6 +720,10 @@ class Entry extends DataClass implements Insertable<Entry> {
   /// "yyyy-MM-dd", see dates.dart.
   final String date;
   final DateTime createdAt;
+
+  /// Schema version 3: the monthly income ([Recurrings.autoAdd]) that added this entry by
+  /// itself, or null for anything the person typed in.
+  final int? recurringId;
   const Entry({
     required this.id,
     required this.type,
@@ -704,6 +733,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     this.note,
     required this.date,
     required this.createdAt,
+    this.recurringId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -720,6 +750,9 @@ class Entry extends DataClass implements Insertable<Entry> {
     }
     map['date'] = Variable<String>(date);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || recurringId != null) {
+      map['recurring_id'] = Variable<int>(recurringId);
+    }
     return map;
   }
 
@@ -735,6 +768,9 @@ class Entry extends DataClass implements Insertable<Entry> {
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       date: Value(date),
       createdAt: Value(createdAt),
+      recurringId: recurringId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurringId),
     );
   }
 
@@ -752,6 +788,7 @@ class Entry extends DataClass implements Insertable<Entry> {
       note: serializer.fromJson<String?>(json['note']),
       date: serializer.fromJson<String>(json['date']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      recurringId: serializer.fromJson<int?>(json['recurringId']),
     );
   }
   @override
@@ -766,6 +803,7 @@ class Entry extends DataClass implements Insertable<Entry> {
       'note': serializer.toJson<String?>(note),
       'date': serializer.toJson<String>(date),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'recurringId': serializer.toJson<int?>(recurringId),
     };
   }
 
@@ -778,6 +816,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     Value<String?> note = const Value.absent(),
     String? date,
     DateTime? createdAt,
+    Value<int?> recurringId = const Value.absent(),
   }) => Entry(
     id: id ?? this.id,
     type: type ?? this.type,
@@ -789,6 +828,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     note: note.present ? note.value : this.note,
     date: date ?? this.date,
     createdAt: createdAt ?? this.createdAt,
+    recurringId: recurringId.present ? recurringId.value : this.recurringId,
   );
   Entry copyWithCompanion(EntriesCompanion data) {
     return Entry(
@@ -806,6 +846,9 @@ class Entry extends DataClass implements Insertable<Entry> {
       note: data.note.present ? data.note.value : this.note,
       date: data.date.present ? data.date.value : this.date,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      recurringId: data.recurringId.present
+          ? data.recurringId.value
+          : this.recurringId,
     );
   }
 
@@ -819,7 +862,8 @@ class Entry extends DataClass implements Insertable<Entry> {
           ..write('paymentMethod: $paymentMethod, ')
           ..write('note: $note, ')
           ..write('date: $date, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('recurringId: $recurringId')
           ..write(')'))
         .toString();
   }
@@ -834,6 +878,7 @@ class Entry extends DataClass implements Insertable<Entry> {
     note,
     date,
     createdAt,
+    recurringId,
   );
   @override
   bool operator ==(Object other) =>
@@ -846,7 +891,8 @@ class Entry extends DataClass implements Insertable<Entry> {
           other.paymentMethod == this.paymentMethod &&
           other.note == this.note &&
           other.date == this.date &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.recurringId == this.recurringId);
 }
 
 class EntriesCompanion extends UpdateCompanion<Entry> {
@@ -858,6 +904,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
   final Value<String?> note;
   final Value<String> date;
   final Value<DateTime> createdAt;
+  final Value<int?> recurringId;
   const EntriesCompanion({
     this.id = const Value.absent(),
     this.type = const Value.absent(),
@@ -867,6 +914,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     this.note = const Value.absent(),
     this.date = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.recurringId = const Value.absent(),
   });
   EntriesCompanion.insert({
     this.id = const Value.absent(),
@@ -877,6 +925,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     this.note = const Value.absent(),
     required String date,
     this.createdAt = const Value.absent(),
+    this.recurringId = const Value.absent(),
   }) : type = Value(type),
        amountPoisha = Value(amountPoisha),
        categoryId = Value(categoryId),
@@ -890,6 +939,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     Expression<String>? note,
     Expression<String>? date,
     Expression<DateTime>? createdAt,
+    Expression<int>? recurringId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -900,6 +950,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
       if (note != null) 'note': note,
       if (date != null) 'date': date,
       if (createdAt != null) 'created_at': createdAt,
+      if (recurringId != null) 'recurring_id': recurringId,
     });
   }
 
@@ -912,6 +963,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     Value<String?>? note,
     Value<String>? date,
     Value<DateTime>? createdAt,
+    Value<int?>? recurringId,
   }) {
     return EntriesCompanion(
       id: id ?? this.id,
@@ -922,6 +974,7 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
       note: note ?? this.note,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
+      recurringId: recurringId ?? this.recurringId,
     );
   }
 
@@ -952,6 +1005,9 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (recurringId.present) {
+      map['recurring_id'] = Variable<int>(recurringId.value);
+    }
     return map;
   }
 
@@ -965,7 +1021,8 @@ class EntriesCompanion extends UpdateCompanion<Entry> {
           ..write('paymentMethod: $paymentMethod, ')
           ..write('note: $note, ')
           ..write('date: $date, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('recurringId: $recurringId')
           ..write(')'))
         .toString();
   }
@@ -1545,6 +1602,32 @@ class $RecurringsTable extends Recurrings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _autoAddMeta = const VerificationMeta(
+    'autoAdd',
+  );
+  @override
+  late final GeneratedColumn<bool> autoAdd = GeneratedColumn<bool>(
+    'auto_add',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_add" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _startMonthMeta = const VerificationMeta(
+    'startMonth',
+  );
+  @override
+  late final GeneratedColumn<String> startMonth = GeneratedColumn<String>(
+    'start_month',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1555,6 +1638,8 @@ class $RecurringsTable extends Recurrings
     dayOfMonth,
     isActive,
     lastHandledMonth,
+    autoAdd,
+    startMonth,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1632,6 +1717,18 @@ class $RecurringsTable extends Recurrings
         ),
       );
     }
+    if (data.containsKey('auto_add')) {
+      context.handle(
+        _autoAddMeta,
+        autoAdd.isAcceptableOrUnknown(data['auto_add']!, _autoAddMeta),
+      );
+    }
+    if (data.containsKey('start_month')) {
+      context.handle(
+        _startMonthMeta,
+        startMonth.isAcceptableOrUnknown(data['start_month']!, _startMonthMeta),
+      );
+    }
     return context;
   }
 
@@ -1673,6 +1770,14 @@ class $RecurringsTable extends Recurrings
         DriftSqlType.string,
         data['${effectivePrefix}last_handled_month'],
       ),
+      autoAdd: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_add'],
+      )!,
+      startMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}start_month'],
+      ),
     );
   }
 
@@ -1695,6 +1800,14 @@ class Recurring extends DataClass implements Insertable<Recurring> {
 
   /// "yyyy-MM" of the month the user last confirmed or skipped this item.
   final String? lastHandledMonth;
+
+  /// Schema version 3. Monthly income that records itself on its day, instead of waiting
+  /// to be confirmed. Bills always keep asking first.
+  final bool autoAdd;
+
+  /// Schema version 3, "yyyy-MM": the first month an automatic item may be added for, so a
+  /// new salary is never filled in backwards into months before it was set up.
+  final String? startMonth;
   const Recurring({
     required this.id,
     required this.title,
@@ -1704,6 +1817,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
     required this.dayOfMonth,
     required this.isActive,
     this.lastHandledMonth,
+    required this.autoAdd,
+    this.startMonth,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1717,6 +1832,10 @@ class Recurring extends DataClass implements Insertable<Recurring> {
     map['is_active'] = Variable<bool>(isActive);
     if (!nullToAbsent || lastHandledMonth != null) {
       map['last_handled_month'] = Variable<String>(lastHandledMonth);
+    }
+    map['auto_add'] = Variable<bool>(autoAdd);
+    if (!nullToAbsent || startMonth != null) {
+      map['start_month'] = Variable<String>(startMonth);
     }
     return map;
   }
@@ -1733,6 +1852,10 @@ class Recurring extends DataClass implements Insertable<Recurring> {
       lastHandledMonth: lastHandledMonth == null && nullToAbsent
           ? const Value.absent()
           : Value(lastHandledMonth),
+      autoAdd: Value(autoAdd),
+      startMonth: startMonth == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startMonth),
     );
   }
 
@@ -1750,6 +1873,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
       dayOfMonth: serializer.fromJson<int>(json['dayOfMonth']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       lastHandledMonth: serializer.fromJson<String?>(json['lastHandledMonth']),
+      autoAdd: serializer.fromJson<bool>(json['autoAdd']),
+      startMonth: serializer.fromJson<String?>(json['startMonth']),
     );
   }
   @override
@@ -1764,6 +1889,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
       'dayOfMonth': serializer.toJson<int>(dayOfMonth),
       'isActive': serializer.toJson<bool>(isActive),
       'lastHandledMonth': serializer.toJson<String?>(lastHandledMonth),
+      'autoAdd': serializer.toJson<bool>(autoAdd),
+      'startMonth': serializer.toJson<String?>(startMonth),
     };
   }
 
@@ -1776,6 +1903,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
     int? dayOfMonth,
     bool? isActive,
     Value<String?> lastHandledMonth = const Value.absent(),
+    bool? autoAdd,
+    Value<String?> startMonth = const Value.absent(),
   }) => Recurring(
     id: id ?? this.id,
     title: title ?? this.title,
@@ -1787,6 +1916,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
     lastHandledMonth: lastHandledMonth.present
         ? lastHandledMonth.value
         : this.lastHandledMonth,
+    autoAdd: autoAdd ?? this.autoAdd,
+    startMonth: startMonth.present ? startMonth.value : this.startMonth,
   );
   Recurring copyWithCompanion(RecurringsCompanion data) {
     return Recurring(
@@ -1806,6 +1937,10 @@ class Recurring extends DataClass implements Insertable<Recurring> {
       lastHandledMonth: data.lastHandledMonth.present
           ? data.lastHandledMonth.value
           : this.lastHandledMonth,
+      autoAdd: data.autoAdd.present ? data.autoAdd.value : this.autoAdd,
+      startMonth: data.startMonth.present
+          ? data.startMonth.value
+          : this.startMonth,
     );
   }
 
@@ -1819,7 +1954,9 @@ class Recurring extends DataClass implements Insertable<Recurring> {
           ..write('categoryId: $categoryId, ')
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('isActive: $isActive, ')
-          ..write('lastHandledMonth: $lastHandledMonth')
+          ..write('lastHandledMonth: $lastHandledMonth, ')
+          ..write('autoAdd: $autoAdd, ')
+          ..write('startMonth: $startMonth')
           ..write(')'))
         .toString();
   }
@@ -1834,6 +1971,8 @@ class Recurring extends DataClass implements Insertable<Recurring> {
     dayOfMonth,
     isActive,
     lastHandledMonth,
+    autoAdd,
+    startMonth,
   );
   @override
   bool operator ==(Object other) =>
@@ -1846,7 +1985,9 @@ class Recurring extends DataClass implements Insertable<Recurring> {
           other.categoryId == this.categoryId &&
           other.dayOfMonth == this.dayOfMonth &&
           other.isActive == this.isActive &&
-          other.lastHandledMonth == this.lastHandledMonth);
+          other.lastHandledMonth == this.lastHandledMonth &&
+          other.autoAdd == this.autoAdd &&
+          other.startMonth == this.startMonth);
 }
 
 class RecurringsCompanion extends UpdateCompanion<Recurring> {
@@ -1858,6 +1999,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
   final Value<int> dayOfMonth;
   final Value<bool> isActive;
   final Value<String?> lastHandledMonth;
+  final Value<bool> autoAdd;
+  final Value<String?> startMonth;
   const RecurringsCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -1867,6 +2010,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
     this.dayOfMonth = const Value.absent(),
     this.isActive = const Value.absent(),
     this.lastHandledMonth = const Value.absent(),
+    this.autoAdd = const Value.absent(),
+    this.startMonth = const Value.absent(),
   });
   RecurringsCompanion.insert({
     this.id = const Value.absent(),
@@ -1877,6 +2022,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
     required int dayOfMonth,
     this.isActive = const Value.absent(),
     this.lastHandledMonth = const Value.absent(),
+    this.autoAdd = const Value.absent(),
+    this.startMonth = const Value.absent(),
   }) : title = Value(title),
        type = Value(type),
        amountPoisha = Value(amountPoisha),
@@ -1891,6 +2038,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
     Expression<int>? dayOfMonth,
     Expression<bool>? isActive,
     Expression<String>? lastHandledMonth,
+    Expression<bool>? autoAdd,
+    Expression<String>? startMonth,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1901,6 +2050,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
       if (dayOfMonth != null) 'day_of_month': dayOfMonth,
       if (isActive != null) 'is_active': isActive,
       if (lastHandledMonth != null) 'last_handled_month': lastHandledMonth,
+      if (autoAdd != null) 'auto_add': autoAdd,
+      if (startMonth != null) 'start_month': startMonth,
     });
   }
 
@@ -1913,6 +2064,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
     Value<int>? dayOfMonth,
     Value<bool>? isActive,
     Value<String?>? lastHandledMonth,
+    Value<bool>? autoAdd,
+    Value<String?>? startMonth,
   }) {
     return RecurringsCompanion(
       id: id ?? this.id,
@@ -1923,6 +2076,8 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
       dayOfMonth: dayOfMonth ?? this.dayOfMonth,
       isActive: isActive ?? this.isActive,
       lastHandledMonth: lastHandledMonth ?? this.lastHandledMonth,
+      autoAdd: autoAdd ?? this.autoAdd,
+      startMonth: startMonth ?? this.startMonth,
     );
   }
 
@@ -1953,6 +2108,12 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
     if (lastHandledMonth.present) {
       map['last_handled_month'] = Variable<String>(lastHandledMonth.value);
     }
+    if (autoAdd.present) {
+      map['auto_add'] = Variable<bool>(autoAdd.value);
+    }
+    if (startMonth.present) {
+      map['start_month'] = Variable<String>(startMonth.value);
+    }
     return map;
   }
 
@@ -1966,7 +2127,9 @@ class RecurringsCompanion extends UpdateCompanion<Recurring> {
           ..write('categoryId: $categoryId, ')
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('isActive: $isActive, ')
-          ..write('lastHandledMonth: $lastHandledMonth')
+          ..write('lastHandledMonth: $lastHandledMonth, ')
+          ..write('autoAdd: $autoAdd, ')
+          ..write('startMonth: $startMonth')
           ..write(')'))
         .toString();
   }
@@ -3450,6 +3613,257 @@ class DharPaymentsCompanion extends UpdateCompanion<DharPayment> {
   }
 }
 
+class $EraseSnapshotsTable extends EraseSnapshots
+    with TableInfo<$EraseSnapshotsTable, EraseSnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EraseSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, createdAt, payload];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'erase_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<EraseSnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  EraseSnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EraseSnapshot(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      )!,
+    );
+  }
+
+  @override
+  $EraseSnapshotsTable createAlias(String alias) {
+    return $EraseSnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class EraseSnapshot extends DataClass implements Insertable<EraseSnapshot> {
+  final int id;
+  final DateTime createdAt;
+
+  /// The same JSON a backup file holds.
+  final String payload;
+  const EraseSnapshot({
+    required this.id,
+    required this.createdAt,
+    required this.payload,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  EraseSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return EraseSnapshotsCompanion(
+      id: Value(id),
+      createdAt: Value(createdAt),
+      payload: Value(payload),
+    );
+  }
+
+  factory EraseSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EraseSnapshot(
+      id: serializer.fromJson<int>(json['id']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  EraseSnapshot copyWith({int? id, DateTime? createdAt, String? payload}) =>
+      EraseSnapshot(
+        id: id ?? this.id,
+        createdAt: createdAt ?? this.createdAt,
+        payload: payload ?? this.payload,
+      );
+  EraseSnapshot copyWithCompanion(EraseSnapshotsCompanion data) {
+    return EraseSnapshot(
+      id: data.id.present ? data.id.value : this.id,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EraseSnapshot(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, createdAt, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EraseSnapshot &&
+          other.id == this.id &&
+          other.createdAt == this.createdAt &&
+          other.payload == this.payload);
+}
+
+class EraseSnapshotsCompanion extends UpdateCompanion<EraseSnapshot> {
+  final Value<int> id;
+  final Value<DateTime> createdAt;
+  final Value<String> payload;
+  const EraseSnapshotsCompanion({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.payload = const Value.absent(),
+  });
+  EraseSnapshotsCompanion.insert({
+    this.id = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    required String payload,
+  }) : payload = Value(payload);
+  static Insertable<EraseSnapshot> custom({
+    Expression<int>? id,
+    Expression<DateTime>? createdAt,
+    Expression<String>? payload,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (createdAt != null) 'created_at': createdAt,
+      if (payload != null) 'payload': payload,
+    });
+  }
+
+  EraseSnapshotsCompanion copyWith({
+    Value<int>? id,
+    Value<DateTime>? createdAt,
+    Value<String>? payload,
+  }) {
+    return EraseSnapshotsCompanion(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      payload: payload ?? this.payload,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EraseSnapshotsCompanion(')
+          ..write('id: $id, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3462,6 +3876,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $GoalDepositsTable goalDeposits = $GoalDepositsTable(this);
   late final $DharRecordsTable dharRecords = $DharRecordsTable(this);
   late final $DharPaymentsTable dharPayments = $DharPaymentsTable(this);
+  late final $EraseSnapshotsTable eraseSnapshots = $EraseSnapshotsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3476,6 +3891,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     goalDeposits,
     dharRecords,
     dharPayments,
+    eraseSnapshots,
   ];
 }
 
@@ -4022,6 +4438,7 @@ typedef $$EntriesTableCreateCompanionBuilder = EntriesCompanion Function({
   Value<String?> note,
   required String date,
   Value<DateTime> createdAt,
+  Value<int?> recurringId,
 });
 typedef $$EntriesTableUpdateCompanionBuilder = EntriesCompanion Function({
   Value<int> id,
@@ -4032,6 +4449,7 @@ typedef $$EntriesTableUpdateCompanionBuilder = EntriesCompanion Function({
   Value<String?> note,
   Value<String> date,
   Value<DateTime> createdAt,
+  Value<int?> recurringId,
 });
 
 final class $$EntriesTableReferences
@@ -4097,6 +4515,11 @@ class $$EntriesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get recurringId => $composableBuilder(
+    column: $table.recurringId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4168,6 +4591,11 @@ class $$EntriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get recurringId => $composableBuilder(
+    column: $table.recurringId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4225,6 +4653,11 @@ class $$EntriesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<int> get recurringId => $composableBuilder(
+    column: $table.recurringId,
+    builder: (column) => column,
+  );
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -4286,6 +4719,7 @@ class $$EntriesTableTableManager
                 Value<String?> note = const Value.absent(),
                 Value<String> date = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int?> recurringId = const Value.absent(),
               }) => EntriesCompanion(
                 id: id,
                 type: type,
@@ -4295,6 +4729,7 @@ class $$EntriesTableTableManager
                 note: note,
                 date: date,
                 createdAt: createdAt,
+                recurringId: recurringId,
               ),
           createCompanionCallback:
               ({
@@ -4306,6 +4741,7 @@ class $$EntriesTableTableManager
                 Value<String?> note = const Value.absent(),
                 required String date,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<int?> recurringId = const Value.absent(),
               }) => EntriesCompanion.insert(
                 id: id,
                 type: type,
@@ -4315,6 +4751,7 @@ class $$EntriesTableTableManager
                 note: note,
                 date: date,
                 createdAt: createdAt,
+                recurringId: recurringId,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4813,6 +5250,8 @@ typedef $$RecurringsTableCreateCompanionBuilder = RecurringsCompanion Function({
   required int dayOfMonth,
   Value<bool> isActive,
   Value<String?> lastHandledMonth,
+  Value<bool> autoAdd,
+  Value<String?> startMonth,
 });
 typedef $$RecurringsTableUpdateCompanionBuilder = RecurringsCompanion Function({
   Value<int> id,
@@ -4823,6 +5262,8 @@ typedef $$RecurringsTableUpdateCompanionBuilder = RecurringsCompanion Function({
   Value<int> dayOfMonth,
   Value<bool> isActive,
   Value<String?> lastHandledMonth,
+  Value<bool> autoAdd,
+  Value<String?> startMonth,
 });
 
 final class $$RecurringsTableReferences
@@ -4888,6 +5329,16 @@ class $$RecurringsTableFilterComposer
 
   ColumnFilters<String> get lastHandledMonth => $composableBuilder(
     column: $table.lastHandledMonth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoAdd => $composableBuilder(
+    column: $table.autoAdd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get startMonth => $composableBuilder(
+    column: $table.startMonth,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4959,6 +5410,16 @@ class $$RecurringsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get autoAdd => $composableBuilder(
+    column: $table.autoAdd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get startMonth => $composableBuilder(
+    column: $table.startMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -5016,6 +5477,14 @@ class $$RecurringsTableAnnotationComposer
 
   GeneratedColumn<String> get lastHandledMonth => $composableBuilder(
     column: $table.lastHandledMonth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoAdd =>
+      $composableBuilder(column: $table.autoAdd, builder: (column) => column);
+
+  GeneratedColumn<String> get startMonth => $composableBuilder(
+    column: $table.startMonth,
     builder: (column) => column,
   );
 
@@ -5079,6 +5548,8 @@ class $$RecurringsTableTableManager
                 Value<int> dayOfMonth = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<String?> lastHandledMonth = const Value.absent(),
+                Value<bool> autoAdd = const Value.absent(),
+                Value<String?> startMonth = const Value.absent(),
               }) => RecurringsCompanion(
                 id: id,
                 title: title,
@@ -5088,6 +5559,8 @@ class $$RecurringsTableTableManager
                 dayOfMonth: dayOfMonth,
                 isActive: isActive,
                 lastHandledMonth: lastHandledMonth,
+                autoAdd: autoAdd,
+                startMonth: startMonth,
               ),
           createCompanionCallback:
               ({
@@ -5099,6 +5572,8 @@ class $$RecurringsTableTableManager
                 required int dayOfMonth,
                 Value<bool> isActive = const Value.absent(),
                 Value<String?> lastHandledMonth = const Value.absent(),
+                Value<bool> autoAdd = const Value.absent(),
+                Value<String?> startMonth = const Value.absent(),
               }) => RecurringsCompanion.insert(
                 id: id,
                 title: title,
@@ -5108,6 +5583,8 @@ class $$RecurringsTableTableManager
                 dayOfMonth: dayOfMonth,
                 isActive: isActive,
                 lastHandledMonth: lastHandledMonth,
+                autoAdd: autoAdd,
+                startMonth: startMonth,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -6411,6 +6888,173 @@ typedef $$DharPaymentsTableProcessedTableManager =
       DharPayment,
       PrefetchHooks Function({bool dharId})
     >;
+typedef $$EraseSnapshotsTableCreateCompanionBuilder =
+    EraseSnapshotsCompanion Function({
+      Value<int> id,
+      Value<DateTime> createdAt,
+      required String payload,
+    });
+typedef $$EraseSnapshotsTableUpdateCompanionBuilder =
+    EraseSnapshotsCompanion Function({
+      Value<int> id,
+      Value<DateTime> createdAt,
+      Value<String> payload,
+    });
+
+class $$EraseSnapshotsTableFilterComposer
+    extends Composer<_$AppDatabase, $EraseSnapshotsTable> {
+  $$EraseSnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$EraseSnapshotsTableOrderingComposer
+    extends Composer<_$AppDatabase, $EraseSnapshotsTable> {
+  $$EraseSnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+    column: $table.payload,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$EraseSnapshotsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $EraseSnapshotsTable> {
+  $$EraseSnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+}
+
+class $$EraseSnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EraseSnapshotsTable,
+          EraseSnapshot,
+          $$EraseSnapshotsTableFilterComposer,
+          $$EraseSnapshotsTableOrderingComposer,
+          $$EraseSnapshotsTableAnnotationComposer,
+          $$EraseSnapshotsTableCreateCompanionBuilder,
+          $$EraseSnapshotsTableUpdateCompanionBuilder,
+          (
+            EraseSnapshot,
+            BaseReferences<_$AppDatabase, $EraseSnapshotsTable, EraseSnapshot>,
+          ),
+          EraseSnapshot,
+          PrefetchHooks Function()
+        > {
+  $$EraseSnapshotsTableTableManager(
+    _$AppDatabase db,
+    $EraseSnapshotsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$EraseSnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$EraseSnapshotsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$EraseSnapshotsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<String> payload = const Value.absent(),
+              }) => EraseSnapshotsCompanion(
+                id: id,
+                createdAt: createdAt,
+                payload: payload,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                required String payload,
+              }) => EraseSnapshotsCompanion.insert(
+                id: id,
+                createdAt: createdAt,
+                payload: payload,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$EraseSnapshotsTable, EraseSnapshot>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $EraseSnapshotsTable,
+                    EraseSnapshot
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$EraseSnapshotsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EraseSnapshotsTable,
+      EraseSnapshot,
+      $$EraseSnapshotsTableFilterComposer,
+      $$EraseSnapshotsTableOrderingComposer,
+      $$EraseSnapshotsTableAnnotationComposer,
+      $$EraseSnapshotsTableCreateCompanionBuilder,
+      $$EraseSnapshotsTableUpdateCompanionBuilder,
+      (
+        EraseSnapshot,
+        BaseReferences<_$AppDatabase, $EraseSnapshotsTable, EraseSnapshot>,
+      ),
+      EraseSnapshot,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -6433,4 +7077,6 @@ class $AppDatabaseManager {
       $$DharRecordsTableTableManager(_db, _db.dharRecords);
   $$DharPaymentsTableTableManager get dharPayments =>
       $$DharPaymentsTableTableManager(_db, _db.dharPayments);
+  $$EraseSnapshotsTableTableManager get eraseSnapshots =>
+      $$EraseSnapshotsTableTableManager(_db, _db.eraseSnapshots);
 }

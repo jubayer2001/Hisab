@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/profile_providers.dart';
 import '../../app/settings_providers.dart';
 import '../../app/theme.dart';
 import '../../core/dates.dart';
@@ -11,10 +12,13 @@ import '../../core/widgets/app_card.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entry_tile.dart';
 import '../../core/widgets/level_bar.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../account/backup_nudge.dart';
 import '../../data/logic/budgets.dart';
 import '../../data/providers.dart';
 import '../../data/summary.dart';
 import '../add_entry/entry_actions.dart';
+import '../income/income_widgets.dart';
 import '../recurring/due_bills.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -60,7 +64,11 @@ class HomeScreen extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
-                if (streak > 0) _StreakChip(days: streak),
+                if (streak > 0) ...[
+                  _StreakChip(days: streak),
+                  const SizedBox(width: 10),
+                ],
+                const ProfileAvatar(),
               ],
             ),
             Text(
@@ -69,8 +77,13 @@ class HomeScreen extends ConsumerWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 20),
-            _SummaryCard(summary: summary, budget: overall),
+            const SizedBox(height: 16),
+            if (ref.watch(showCloudNudgeProvider)) ...[
+              const BackupNudge(),
+              const SizedBox(height: 12),
+            ],
+            const IncomeNotes(),
+            _SummaryCard(summary: summary, budget: overall, onIncomeTap: () => showIncomeBreakdown(context)),
             for (final alert in alerts.take(2))
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -179,10 +192,13 @@ class _StreakChip extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary, required this.budget});
+  const _SummaryCard({required this.summary, required this.budget, required this.onIncomeTap});
 
   final Summary summary;
   final BudgetStatus? budget;
+
+  /// Tapping the Income figure shows where it came from.
+  final VoidCallback onIncomeTap;
 
   @override
   Widget build(BuildContext context) {
@@ -191,8 +207,11 @@ class _SummaryCard extends StatelessWidget {
     final soft = on.withValues(alpha: 0.82);
     const tabular = [FontFeature.tabularFigures()];
 
-    Widget stat(String label, String value) => Expanded(
-          child: Column(
+    Widget stat(String label, String value, {VoidCallback? onTap}) => Expanded(
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
@@ -206,6 +225,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
           ),
         );
 
@@ -251,7 +271,7 @@ class _SummaryCard extends StatelessWidget {
           Row(
             children: [
               stat('Spent this month', formatTaka(summary.monthExpense)),
-              stat('Income', formatTaka(summary.monthIncome)),
+              stat('Income', formatTaka(summary.monthIncome), onTap: onIncomeTap),
               stat('Balance', formatTaka(summary.monthBalance)),
             ],
           ),

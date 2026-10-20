@@ -1,14 +1,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Daily reminder: show notifications, survive reboots, fire close to the chosen time. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The optional app lock asks the phone to check the owner (fingerprint, face or screen lock). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
+    <!-- allowBackup is off: Android's automatic backup and "adb backup" would otherwise copy the
+         app's data off the phone. usesCleartextTraffic is off: no plain-HTTP connections. -->
     <application
         android:label="Hisab"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"

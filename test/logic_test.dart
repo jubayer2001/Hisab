@@ -23,7 +23,7 @@ EntryWithCategory _entry(Category c, int poisha, String date) {
   return EntryWithCategory(
     Entry(
       id: id, type: c.type, amountPoisha: poisha, categoryId: c.id,
-      paymentMethod: null, note: null, date: date, createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
+      paymentMethod: null, note: null, date: date, createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)), recurringId: null,
     ),
     c,
   );
@@ -31,7 +31,7 @@ EntryWithCategory _entry(Category c, int poisha, String date) {
 
 Recurring _recurring({int day = 1, bool active = true, String? handled}) => Recurring(
       id: 1, title: 'Rent', type: EntryType.expense, amountPoisha: 800000, categoryId: 1,
-      dayOfMonth: day, isActive: active, lastHandledMonth: handled,
+      dayOfMonth: day, isActive: active, lastHandledMonth: handled, autoAdd: false, startMonth: null,
     );
 
 SavingsGoal _goal({String? deadline, int target = 1000000}) =>

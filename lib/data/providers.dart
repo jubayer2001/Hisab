@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/dates.dart';
 import 'db/app_database.dart';
 import 'db/tables.dart';
+import 'logic/auto_income.dart';
 import 'logic/budgets.dart';
 import 'logic/planning.dart';
 import 'summary.dart';
@@ -152,4 +153,19 @@ final todayHandledProvider = Provider<bool>((ref) {
   final marked = ref.watch(noSpendDaysProvider).value?.contains(today) ?? false;
   final hasExpense = ref.watch(todayEntriesProvider).any((e) => e.entry.type == EntryType.expense);
   return marked || hasExpense;
+});
+
+/// Adds monthly income that has come due and is not in the list yet. Runs when the app
+/// starts, when the day changes, and whenever the recurring items change (so a newly set up
+/// income appears at once). Safe to repeat: nothing is ever added twice.
+final autoIncomeSyncProvider = FutureProvider<int>((ref) async {
+  final today = ref.watch(todayProvider);
+  ref.watch(recurringsProvider);
+  final added = await applyAutoIncome(ref.watch(databaseProvider), today);
+  return added.length;
+});
+
+/// What the active automatic incomes add up to in a month (poisha).
+final monthlyIncomeTotalProvider = Provider<int>((ref) {
+  return monthlyIncomeTotal(ref.watch(recurringsProvider).value ?? const <Recurring>[]);
 });

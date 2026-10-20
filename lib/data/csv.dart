@@ -33,10 +33,11 @@ String _takaPlain(int poisha) {
   return '$taka.${rest.toString().padLeft(2, '0')}';
 }
 
-/// A cell that starts with = + - or @ would be run as a formula by Excel, so it gets a
-/// leading apostrophe. Only text typed by the user needs this, not numbers.
+/// A cell that starts with = + - @ (or a tab or carriage return, which spreadsheets also treat as
+/// a way in) would be run as a formula by Excel, so it gets a leading apostrophe. Only text typed
+/// by the user needs this, not numbers.
 String _safeText(String value) {
-  if (value.isNotEmpty && '=+-@'.contains(value[0])) return "'$value";
+  if (value.isNotEmpty && '=+-@\t\r'.contains(value[0])) return "'$value";
   return value;
 }
 

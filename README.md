@@ -41,9 +41,12 @@ The pictures use made-up sample data.
 - **Savings goals:** save for something, with the monthly amount needed to reach it on time. Saved money is never counted as spending.
 - **Dhar:** track money you lent or borrowed, with part payments and a reminder on the due date.
 - **Reminders:** a nightly reminder to add the day's expenses, and a streak counter to build the habit.
+- **Delete and erase:** a bin on every entry (with Undo), multi-select delete in History, and "Erase all data" with a 7-day undo.
+- **Monthly income:** set your salary once and it records itself every month; other income is added any time.
 - **Backup and restore:** save everything to one file and bring it back on any phone. Export to CSV for Excel or Google Sheets.
+- **Optional Google backup:** sign in with Google and Hisab keeps a copy in a hidden folder of your own Google Drive, updated whenever you are online. Delete the app or change phones, sign in again, and everything comes back.
 - **Light and dark mode.**
-- **Private:** no ads, no account, no internet permission. All data stays on your phone.
+- **Private and secure:** no ads, no tracking, no analytics. The app works fully offline and your data always stays on your phone, **encrypted** with a key kept in Android's secure storage. Optional app lock (fingerprint, face, PIN or pattern), and the screens are hidden from screenshots and the recent-apps picture. Signing in with Google is optional; it is used only for the backup copy, in an app-only Drive folder (the `drive.appdata` permission, which cannot see any of your other files). Nothing is sent anywhere else. See the [privacy policy](docs/PRIVACY.md) and [SECURITY.md](SECURITY.md).
 
 ## Roadmap
 
@@ -55,7 +58,7 @@ Test versions go straight to the developer's phone over USB. Only 1.0 is publish
 | **v0.2** | Add, edit and delete expenses and income. Categories, History with search, a real Home screen with today and this month, the 10 PM reminder and a battery-settings guide for Redmi and similar phones. The first version you can use every day. | Done, tested on a phone |
 | **v0.3** | Reports by day, week, month and year, with charts. Balance (income minus spending). Monthly and per-category budgets with an 80% warning. | Done, tested on a phone |
 | **v0.4** | Recurring bills, savings goals, the dhar (lend and borrow) tracker and the logging streak. | Done, tested on a phone |
-| **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, CSV export, a proper app icon and splash screen, and screenshots here. Then about a week of real use on a phone before it is tagged 1.0. | Next |
+| **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, optional automatic backup to your Google account, CSV export, a proper app icon and splash screen, and screenshots here. Then about a week of real use on a phone before it is tagged 1.0. | Next |
 
 If a version has bugs, a small fix release (for example v0.2.1) comes before the next one. Changes requested after trying a version are made before building on top of it, so the list can grow a little.
 

@@ -7,6 +7,7 @@ import 'package:hisab/core/dates.dart';
 import 'package:hisab/data/backup.dart';
 import 'package:hisab/data/db/app_database.dart';
 import 'package:hisab/data/db/tables.dart';
+import 'package:hisab/core/widgets/profile_avatar.dart';
 
 import 'support/harness.dart';
 
@@ -35,6 +36,12 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Next'));
     await h.settle(tester);
 
+    // A monthly income, typed in and left to be added when they finish.
+    expect(find.text('Your monthly income'), findsOneWidget);
+    await typeInto(tester, 'Amount each month', '45000');
+    await tester.tap(find.widgetWithText(FilledButton, 'Next'));
+    await h.settle(tester);
+
     expect(find.text('An evening reminder'), findsOneWidget);
     expect(find.text('10:00 PM'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Get started'));
@@ -44,6 +51,15 @@ void main() {
     expect(find.text('Spent today'), findsOneWidget);
     expect(find.textContaining(', Jubayer'), findsOneWidget);
     expect(find.textContaining('left of ৳25,000 budget'), findsOneWidget);
+
+    // The salary was set up to record itself, and this month's is already there.
+    final recurring = await h.real(tester, () => h.db.watchRecurrings().first);
+    expect(recurring.single.autoAdd, isTrue);
+    expect(recurring.single.title, 'Salary');
+    final entries = await h.entries(tester);
+    expect(entries.single.entry.amountPoisha, 4500000);
+    expect(entries.single.entry.recurringId, recurring.single.id);
+    expect(find.text('৳45,000'), findsWidgets);
 
     final budgets = await h.real(tester, () => h.db.watchBudgets().first);
     expect(budgets.single.categoryId, isNull);
@@ -71,16 +87,16 @@ void main() {
   testWidgets('Welcome: the reminder can be turned off, and Back works', (tester) async {
     await h.pumpApp(tester, onboarded: false);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Next'));
-    await h.settle(tester);
-    await tester.tap(find.widgetWithText(FilledButton, 'Next'));
-    await h.settle(tester);
-    await tester.tap(find.byType(Switch));
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.widgetWithText(FilledButton, 'Next'));
+      await h.settle(tester);
+    }
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Remind me every evening'));
     await tester.pump();
 
     await tester.tap(find.text('Back'));
     await h.settle(tester);
-    expect(find.text('Set a monthly budget'), findsOneWidget);
+    expect(find.text('Your monthly income'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Next'));
     await h.settle(tester);
 
@@ -93,21 +109,21 @@ void main() {
     await h.closeApp(tester);
   });
 
-  testWidgets('More: the name can be changed and removed', (tester) async {
+  testWidgets('Account: the name can be changed and removed', (tester) async {
     await h.pumpApp(tester);
-    await tester.tap(find.text('More'));
+    await tester.tap(find.byType(ProfileAvatar)); // the profile icon on Home
     await h.settle(tester);
 
-    await tester.scrollUntilVisible(find.text('Name shown on Home'), 200);
-    expect(find.text('Not set'), findsOneWidget);
-    await tester.tap(find.text('Name shown on Home'));
+    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Add your name'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ListTile, 'Name'));
     await h.settle(tester);
     await typeInto(tester, 'Name (leave empty to hide it)', '  Rafi ');
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await h.settle(tester);
-    expect(find.text('Rafi'), findsOneWidget);
+    expect(find.text('Rafi'), findsNWidgets(2)); // under the profile icon and on the Name row
 
-    await tester.tap(find.text('Home'));
+    await tester.pageBack();
     await h.settle(tester);
     expect(find.textContaining(', Rafi'), findsOneWidget);
 
@@ -119,10 +135,10 @@ void main() {
     final food = await h.category(tester, 'Food');
     await h.addEntry(tester, amount: 18000, categoryId: food.id, date: dayKey(DateTime.now()), note: 'Lunch');
 
-    await h.openFromMore(tester, 'Backup and restore');
+    await h.openFromMore(tester, 'Backup and export');
     expect(find.text('No backup yet'), findsOneWidget);
 
-    await tester.tap(find.text('Save backup file'));
+    await tester.tap(find.text('Save a backup file'));
     await h.settle(tester);
 
     final file = h.files.saved.single;
@@ -132,7 +148,7 @@ void main() {
     expect(json['format'], 'hisab-backup');
     expect((json['entries'] as List).single['note'], 'Lunch');
     expect(find.textContaining('Backup saved'), findsOneWidget);
-    expect(find.textContaining('Last backup:'), findsOneWidget);
+    expect(find.textContaining('Last saved'), findsOneWidget);
     expect(find.text('No backup yet'), findsNothing);
 
     await h.closeApp(tester);
@@ -140,10 +156,10 @@ void main() {
 
   testWidgets('Backup: cancelling the save dialog saves nothing and shows no success message', (tester) async {
     await h.pumpApp(tester);
-    await h.openFromMore(tester, 'Backup and restore');
+    await h.openFromMore(tester, 'Backup and export');
 
     h.files.cancelSave = true;
-    await tester.tap(find.text('Save backup file'));
+    await tester.tap(find.text('Save a backup file'));
     await h.settle(tester);
 
     expect(h.files.saved, isEmpty);
@@ -170,8 +186,8 @@ void main() {
       return bytes;
     });
 
-    await h.openFromMore(tester, 'Backup and restore');
-    await tester.tap(find.text('Restore from a backup file'));
+    await h.openFromMore(tester, 'Backup and export');
+    await tester.tap(find.text('Restore from a file'));
     await h.settle(tester);
 
     expect(find.text('Replace your data?'), findsOneWidget);
@@ -183,7 +199,7 @@ void main() {
     expect((await h.entries(tester)).map((e) => e.entry.note), ['Current']);
 
     // Replace.
-    await tester.tap(find.text('Restore from a backup file'));
+    await tester.tap(find.text('Restore from a file'));
     await h.settle(tester);
     await tester.tap(find.widgetWithText(FilledButton, 'Replace'));
     await h.settle(tester);
@@ -207,8 +223,8 @@ void main() {
     await h.addEntry(tester, amount: 11100, categoryId: food.id, date: dayKey(DateTime.now()), note: 'Keep me');
 
     h.files.toPick = utf8.encode('this is just a text file') as dynamic;
-    await h.openFromMore(tester, 'Backup and restore');
-    await tester.tap(find.text('Restore from a backup file'));
+    await h.openFromMore(tester, 'Backup and export');
+    await tester.tap(find.text('Restore from a file'));
     await h.settle(tester);
 
     expect(find.text('That file is not a Hisab backup.'), findsOneWidget);
@@ -221,8 +237,8 @@ void main() {
   testWidgets('Restore: cancelling the file picker does nothing', (tester) async {
     await h.pumpApp(tester);
     h.files.toPick = null;
-    await h.openFromMore(tester, 'Backup and restore');
-    await tester.tap(find.text('Restore from a backup file'));
+    await h.openFromMore(tester, 'Backup and export');
+    await tester.tap(find.text('Restore from a file'));
     await h.settle(tester);
 
     expect(find.text('Replace your data?'), findsNothing);
@@ -237,7 +253,7 @@ void main() {
     await h.addEntry(tester, amount: 18000, categoryId: food.id, date: dayKey(DateTime.now()), note: 'Lunch');
     await h.addEntry(tester, amount: 2500, categoryId: food.id, date: dayKey(DateTime.now()), note: 'Tea');
 
-    await h.openFromMore(tester, 'Backup and restore');
+    await h.openFromMore(tester, 'Backup and export');
     await tester.ensureVisible(find.text('Export to CSV'));
     await tester.pump();
     await tester.tap(find.text('Export to CSV'));

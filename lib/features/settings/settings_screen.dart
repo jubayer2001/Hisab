@@ -4,14 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/profile_providers.dart';
 import '../../app/settings_providers.dart';
 import '../../app/version.dart';
 import '../../app/theme.dart';
-import '../../core/widgets/amount_field.dart';
-import '../../core/widgets/sheet.dart';
+import '../../core/money.dart';
+import '../../core/widgets/level_bar.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../data/providers.dart';
+import '../../services/cloud_sync.dart';
 import '../../services/notifications.dart';
 import '../../services/reminder_providers.dart';
 
+/// The "More" tab: the money tools with a live number on each, then reminders, appearance
+/// and help. The profile is the small icon in the corner and opens Account.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -52,14 +58,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _refreshPermissions();
   }
 
-  Future<void> _editName() {
-    return showAppSheet<void>(context, builder: (_) => const _NameSheet());
-  }
-
   Future<void> _pickTime() async {
     final settings = ref.read(reminderSettingsProvider);
     final picked = await showTimePicker(context: context, initialTime: settings.time);
     if (picked != null) ref.read(reminderSettingsProvider.notifier).setTime(picked);
+  }
+
+  /// What the "Backup and export" row says about where the data is.
+  String _backupLine(BackupBadge badge, CloudSyncState cloud, DateTime? lastFile) {
+    switch (badge) {
+      case BackupBadge.protectedByGoogle:
+        final at = cloud.lastBackup;
+        return at == null ? 'Signed in with Google' : 'Backed up ${DateFormat('d MMM, h:mm a').format(at)}';
+      case BackupBadge.waiting:
+        return 'Waiting to back up';
+      case BackupBadge.unprotected:
+        return 'Only on this phone. Tap to sign in';
+      case BackupBadge.none:
+        return lastFile == null ? 'No backup yet' : 'Last backup: ${DateFormat('d MMM y').format(lastFile)}';
+    }
   }
 
   @override
@@ -70,123 +87,212 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final reminder = ref.watch(reminderSettingsProvider);
     final allowed = ref.watch(notificationsAllowedProvider).value ?? true;
     final exactAllowed = ref.watch(exactAlarmsAllowedProvider).value ?? true;
-    final lastBackup = ref.watch(lastBackupProvider);
-    final userName = ref.watch(userNameProvider);
+    final lastFile = ref.watch(lastBackupProvider);
+    final badge = ref.watch(backupBadgeProvider);
+    final cloud = ref.watch(cloudSyncProvider);
+
+    final overall = ref.watch(budgetStatusesProvider).where((s) => s.isOverall).firstOrNull;
+    final activeGoals = ref.watch(goalProgressProvider).where((g) => !g.isDone).toList();
+    final anyGoals = ref.watch(goalProgressProvider).isNotEmpty;
+    final dhar = ref.watch(dharTotalsProvider);
+    final dueBills = ref.watch(dueRecurringsProvider).length;
+    final incomeTotal = ref.watch(monthlyIncomeTotalProvider);
+    final billCount = ref.watch(recurringsProvider).value?.where((r) => r.isActive).length ?? 0;
+    final categoryCount = ref.watch(categoriesProvider).value?.where((c) => !c.isArchived).length ?? 0;
 
     Widget section(String text) => Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 8),
           child: Text(text, style: theme.textTheme.titleMedium),
         );
 
+    Widget card(List<Widget> rows) => Material(
+          color: colors.card,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) const Divider(indent: 72, endIndent: 16),
+                rows[i],
+              ],
+            ],
+          ),
+        );
+
+    Text soft(String text, {Color? color}) =>
+        Text(text, style: theme.textTheme.bodySmall?.copyWith(color: color ?? colors.muted));
+
+    // ---- the four money tools, each with a live line ----
+    final budgetLive = overall == null
+        ? soft('Set a monthly limit')
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              overall.remaining >= 0
+                  ? Text.rich(TextSpan(children: [
+                      TextSpan(text: formatTaka(overall.remaining), style: theme.textTheme.titleSmall),
+                      TextSpan(text: ' left this month', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+                    ]))
+                  : Text(
+                      '${formatTaka(-overall.remaining)} over budget',
+                      style: theme.textTheme.titleSmall?.copyWith(color: colors.spending),
+                    ),
+              const SizedBox(height: 6),
+              _MiniBar(value: overall.fraction, color: budgetLevelColor(context, overall.level)),
+            ],
+          );
+
+    final goalLive = activeGoals.isEmpty
+        ? soft(anyGoals ? 'All goals reached' : 'Save for something')
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                TextSpan(children: [
+                  TextSpan(text: '${activeGoals.first.goal.name} ', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+                  TextSpan(text: '${(activeGoals.first.fraction * 100).floor()}%', style: theme.textTheme.titleSmall),
+                ]),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              _MiniBar(value: activeGoals.first.fraction, color: theme.colorScheme.primary),
+            ],
+          );
+
+    final dharLive = dhar.toReceive > 0
+        ? Text.rich(TextSpan(children: [
+            TextSpan(text: 'Owed to you ', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+            TextSpan(text: formatTaka(dhar.toReceive), style: theme.textTheme.titleSmall),
+          ]))
+        : dhar.toPay > 0
+            ? Text.rich(TextSpan(children: [
+                TextSpan(text: 'You owe ', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+                TextSpan(text: formatTaka(dhar.toPay), style: theme.textTheme.titleSmall),
+              ]))
+            : soft('Money you lent or borrowed');
+
+    final billsLive = dueBills > 0
+        ? Text.rich(TextSpan(children: [
+            TextSpan(text: dueBills == 1 ? '1 bill' : '$dueBills bills', style: theme.textTheme.titleSmall),
+            TextSpan(text: ' due now', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+          ]))
+        : incomeTotal > 0
+            ? Text.rich(TextSpan(children: [
+                TextSpan(text: 'Income ', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+                TextSpan(text: formatTaka(incomeTotal), style: theme.textTheme.titleSmall),
+                TextSpan(text: ' a month', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+              ]))
+            : soft(billCount > 0 ? '$billCount set up' : 'Salary, rent, Wi-Fi');
+
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(
+        title: const Text('More'),
+        actions: const [
+          Padding(padding: EdgeInsets.only(right: 20), child: Center(child: ProfileAvatar())),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
-          const SizedBox(height: 4),
-          Material(
-            color: colors.card,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
+          section('Money tools'),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ToolTile(
-                  icon: Icons.speed_rounded,
-                  title: 'Budgets',
-                  subtitle: 'Monthly and per-category limits',
-                  route: '/budgets',
+                Expanded(
+                  child: _ToolCard(
+                    icon: Icons.speed_rounded,
+                    color: const Color(0xFF157A6E),
+                    title: 'Budgets',
+                    route: '/budgets',
+                    live: budgetLive,
+                  ),
                 ),
-                const Divider(indent: 72, endIndent: 16),
-                _ToolTile(
-                  icon: Icons.savings_outlined,
-                  title: 'Savings goals',
-                  subtitle: 'Save for something, step by step',
-                  route: '/goals',
-                ),
-                const Divider(indent: 72, endIndent: 16),
-                _ToolTile(
-                  icon: Icons.handshake_outlined,
-                  title: 'Dhar',
-                  subtitle: 'Money you lent or borrowed',
-                  route: '/dhar',
-                ),
-                const Divider(indent: 72, endIndent: 16),
-                _ToolTile(
-                  icon: Icons.event_repeat_rounded,
-                  title: 'Recurring bills',
-                  subtitle: 'Rent, Wi-Fi, recharge, salary',
-                  route: '/recurring',
-                ),
-                const Divider(indent: 72, endIndent: 16),
-                _ToolTile(
-                  icon: Icons.category_outlined,
-                  title: 'Categories',
-                  subtitle: 'Add, edit or hide categories',
-                  route: '/categories',
-                ),
-                const Divider(indent: 72, endIndent: 16),
-                _ToolTile(
-                  icon: Icons.backup_outlined,
-                  title: 'Backup and restore',
-                  subtitle: lastBackup == null
-                      ? 'No backup yet'
-                      : 'Last backup: ${DateFormat('d MMM y').format(lastBackup)}',
-                  route: '/backup',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ToolCard(
+                    icon: Icons.savings_outlined,
+                    color: CategoryColors.education,
+                    title: 'Savings goals',
+                    route: '/goals',
+                    live: goalLive,
+                  ),
                 ),
               ],
             ),
           ),
-          section('Your name'),
-          Material(
-            color: colors.card,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: const Text('Name shown on Home'),
-              trailing: Text(
-                userName.isEmpty ? 'Not set' : userName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: userName.isEmpty ? colors.muted : theme.colorScheme.primary,
+          const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _ToolCard(
+                    icon: Icons.handshake_outlined,
+                    color: CategoryColors.food,
+                    title: 'Dhar',
+                    route: '/dhar',
+                    live: dharLive,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ToolCard(
+                    icon: Icons.event_repeat_rounded,
+                    color: CategoryColors.bills,
+                    title: 'Monthly bills & income',
+                    route: '/recurring',
+                    live: billsLive,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          section('Organise'),
+          card([
+            _ListRow(
+              icon: Icons.category_outlined,
+              title: 'Categories',
+              subtitle: '$categoryCount categories',
+              onTap: () => context.push('/categories'),
+            ),
+            _ListRow(
+              icon: Icons.cloud_sync_outlined,
+              title: 'Backup and export',
+              subtitle: _backupLine(badge, cloud, lastFile),
+              onTap: () => context.push('/account'),
+            ),
+          ]),
+          section('Daily reminder'),
+          card([
+            SwitchListTile(
+              contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              secondary: const _IconBox(Icons.notifications_active_outlined),
+              value: reminder.enabled,
+              onChanged: _toggleReminder,
+              title: const Text('Remind me every evening'),
+              subtitle: const Text('Asks if you logged today\'s expenses'),
+            ),
+            ListTile(
+              enabled: reminder.enabled,
+              contentPadding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              leading: const _IconBox(Icons.schedule_rounded),
+              title: const Text('Reminder time'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  formatReminderTime(context, reminder.minutes),
+                  style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),
                 ),
               ),
-              onTap: _editName,
+              onTap: _pickTime,
             ),
-          ),
-          section('Daily reminder'),
-          Material(
-            color: colors.card,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                SwitchListTile(
-                  value: reminder.enabled,
-                  onChanged: _toggleReminder,
-                  title: const Text('Remind me every evening'),
-                  subtitle: const Text('Asks if you logged today\'s expenses'),
-                ),
-                const Divider(indent: 16, endIndent: 16),
-                ListTile(
-                  enabled: reminder.enabled,
-                  leading: const Icon(Icons.schedule_rounded),
-                  title: const Text('Reminder time'),
-                  trailing: Text(
-                    formatReminderTime(context, reminder.minutes),
-                    style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),
-                  ),
-                  onTap: _pickTime,
-                ),
-                const Divider(indent: 16, endIndent: 16),
-                ListTile(
-                  leading: const Icon(Icons.notifications_active_outlined),
-                  title: const Text('Send a test reminder'),
-                  subtitle: const Text('Check that notifications reach you'),
-                  onTap: () => ref.read(notificationServiceProvider).showTest(),
-                ),
-              ],
-            ),
-          ),
+          ]),
           if (reminder.enabled && !allowed) ...[
             const SizedBox(height: 12),
             _Warning(
@@ -206,107 +312,188 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
           ],
-          const SizedBox(height: 12),
-          const _ReminderGuide(),
           section('Appearance'),
-          SegmentedButton<ThemeMode>(
-            segments: const [
-              ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.phone_android)),
-              ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined)),
-              ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined)),
+          Row(
+            children: [
+              for (final (value, label, icon) in const [
+                (ThemeMode.system, 'System', Icons.phone_android_rounded),
+                (ThemeMode.light, 'Light', Icons.light_mode_outlined),
+                (ThemeMode.dark, 'Dark', Icons.dark_mode_outlined),
+              ]) ...[
+                if (value != ThemeMode.system) const SizedBox(width: 8),
+                Expanded(
+                  child: _ThemeChoice(
+                    icon: icon,
+                    label: label,
+                    selected: mode == value,
+                    onTap: () => ref.read(themeModeProvider.notifier).set(value),
+                  ),
+                ),
+              ],
             ],
-            selected: {mode},
-            onSelectionChanged: (s) => ref.read(themeModeProvider.notifier).set(s.first),
           ),
-          section('About'),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Hisab'),
-            subtitle: const Text('Version $appVersion ($appBuildNumber)'),
-          ),
-          const ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.code),
-            title: Text('Source and downloads'),
-            subtitle: Text('github.com/jubayer2001/Hisab'),
-          ),
+          section('Help and about'),
+          const _ReminderGuide(),
+          const SizedBox(height: 12),
+          card([
+            _ListRow(
+              icon: Icons.verified_user_outlined,
+              title: 'Privacy and security',
+              subtitle: 'Where your data is, and how it is protected',
+              onTap: () => context.push('/privacy'),
+            ),
+            _ListRow(
+              icon: Icons.notifications_outlined,
+              title: 'Send a test reminder',
+              subtitle: 'Check that notifications reach you',
+              onTap: () => ref.read(notificationServiceProvider).showTest(),
+            ),
+            const _ListRow(icon: Icons.info_outline, title: 'About Hisab', subtitle: 'Version $appVersion ($appBuildNumber)'),
+            const _ListRow(icon: Icons.code, title: 'Source and downloads', subtitle: 'github.com/jubayer2001/Hisab'),
+          ]),
         ],
       ),
     );
   }
 }
 
-class _NameSheet extends ConsumerStatefulWidget {
-  const _NameSheet();
+class _IconBox extends StatelessWidget {
+  const _IconBox(this.icon);
 
-  @override
-  ConsumerState<_NameSheet> createState() => _NameSheetState();
-}
-
-class _NameSheetState extends ConsumerState<_NameSheet> {
-  late final TextEditingController _name;
-
-  @override
-  void initState() {
-    super.initState();
-    _name = TextEditingController(text: ref.read(userNameProvider));
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    ref.read(userNameProvider.notifier).set(_name.text);
-    Navigator.of(context).pop();
-  }
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return SheetScaffold(
-      footer: FilledButton(onPressed: _save, child: const Text('Save')),
-      children: [
-        const SheetHeader('Your name'),
-        TextField(
-          controller: _name,
-          maxLength: 24,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          onSubmitted: (_) => _save(),
-          decoration: fieldDecoration(context, label: 'Name (leave empty to hide it)'),
-        ),
-      ],
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
+      child: Icon(icon, color: scheme.primary, size: 22),
     );
   }
 }
 
-class _ToolTile extends StatelessWidget {
-  const _ToolTile({required this.icon, required this.title, required this.subtitle, required this.route});
+class _ListRow extends StatelessWidget {
+  const _ListRow({required this.icon, required this.title, required this.subtitle, this.onTap});
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final String route;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primaryContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
-      ),
+      contentPadding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+      leading: _IconBox(icon),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => context.push(route),
+      trailing: onTap == null ? null : const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
+    );
+  }
+}
+
+/// One of the four big tiles: a coloured icon, the tool's name, and a live line from the data.
+class _ToolCard extends StatelessWidget {
+  const _ToolCard({required this.icon, required this.color, required this.title, required this.route, required this.live});
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String route;
+  final Widget live;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: context.hisab.card,
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push(route),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14)),
+                child: Icon(icon, color: Colors.white, size: 23),
+              ),
+              const SizedBox(height: 10),
+              Text(title, style: theme.textTheme.titleMedium),
+              const SizedBox(height: 6),
+              live,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniBar extends StatelessWidget {
+  const _MiniBar({required this.value, required this.color});
+
+  final double value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: LinearProgressIndicator(
+        value: value.clamp(0.0, 1.0),
+        minHeight: 6,
+        color: color,
+        backgroundColor: Theme.of(context).colorScheme.outlineVariant,
+      ),
+    );
+  }
+}
+
+class _ThemeChoice extends StatelessWidget {
+  const _ThemeChoice({required this.icon, required this.label, required this.selected, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: selected ? scheme.primaryContainer : context.hisab.card,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: selected ? scheme.primary : scheme.outlineVariant, width: 1.5),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, color: scheme.primary),
+                const SizedBox(height: 2),
+                Text(label, style: theme.textTheme.labelLarge?.copyWith(fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -363,7 +550,7 @@ class _ReminderGuide extends StatelessWidget {
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          leading: const Icon(Icons.help_outline_rounded),
+          leading: const _IconBox(Icons.help_outline_rounded),
           title: const Text('Reminder not arriving?'),
           subtitle: const Text('Xiaomi, Redmi, POCO, Oppo, Vivo, Realme'),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

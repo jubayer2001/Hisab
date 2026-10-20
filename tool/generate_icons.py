@@ -170,17 +170,18 @@ def main():
     for folder in ("drawable", "drawable-v21"):
         (RES / folder).mkdir(parents=True, exist_ok=True)
         (RES / folder / "launch_background.xml").write_text(launch, encoding="utf-8")
-    for folder in ("values-v31", "values-night-v31"):
+    # AppCompat parents: the phone's fingerprint/PIN prompt (app lock) needs them on older Android.
+    for folder, parent in (("values-v31", "Theme.AppCompat.Light.NoActionBar"), ("values-night-v31", "Theme.AppCompat.NoActionBar")):
         (RES / folder).mkdir(parents=True, exist_ok=True)
         (RES / folder / "styles.xml").write_text(
-            """<?xml version="1.0" encoding="utf-8"?>
+            f"""<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="LaunchTheme" parent="{parent}">
         <item name="android:windowBackground">@drawable/launch_background</item>
         <item name="android:windowSplashScreenBackground">@color/ic_launcher_background</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
     </style>
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <style name="NormalTheme" parent="{parent}">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>

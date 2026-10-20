@@ -20,6 +20,12 @@ const String _formatName = 'hisab-backup';
 /// Bump when the layout of the file changes in a way an older app could not read.
 const int backupFormatVersion = 1;
 
+/// A backup bigger than this is refused before it is even read (a real one is a few hundred KB).
+const int maxBackupBytes = 25 * 1024 * 1024;
+
+/// More rows than this in one table cannot be a real personal tracker.
+const int maxBackupRows = 500000;
+
 /// A backup file that has been read and checked, ready to be restored.
 class BackupContents {
   const BackupContents._(this._data);
@@ -33,8 +39,15 @@ class BackupContents {
   /// App settings saved with the data (name, reminder). Empty for a backup without them.
   Map<String, dynamic> get settings => (_data['settings'] as Map?)?.cast<String, dynamic>() ?? const {};
 
-  List<Map<String, dynamic>> _table(String key) =>
-      ((_data[key] as List?) ?? const []).cast<Map<String, dynamic>>();
+  /// The rows of one table. Backups made by an older version lack columns added later, so
+  /// those are filled with the value they had before the column existed.
+  List<Map<String, dynamic>> _table(String key) {
+    final rows = [for (final r in (_data[key] as List?) ?? const []) Map<String, dynamic>.from(r as Map)];
+    if (key != 'recurrings') return rows;
+    return [
+      for (final r in rows) {'autoAdd': false, ...r},
+    ];
+  }
 }
 
 /// Everything in the database, plus [settings], as a map ready to be saved as JSON.
@@ -72,6 +85,9 @@ String backupFileName(DateTime now) {
 /// Reads and checks a backup file. Throws [BackupException] if it is not a usable Hisab
 /// backup, or was made by a newer version of the app than this one.
 BackupContents parseBackup(Uint8List bytes, {required int currentSchemaVersion}) {
+  if (bytes.length > maxBackupBytes) {
+    throw const BackupException('That file is too large to be a Hisab backup.');
+  }
   final Object? decoded;
   try {
     decoded = jsonDecode(utf8.decode(bytes));
@@ -93,8 +109,130 @@ BackupContents parseBackup(Uint8List bytes, {required int currentSchemaVersion})
   for (final required in ['categories', 'entries']) {
     if (decoded[required] is! List) throw const BackupException('That backup file is damaged.');
   }
+  _validateRows(decoded);
   return BackupContents._(decoded);
 }
+
+// ---- Checking every row ------------------------------------------------------------------
+//
+// A backup file is untrusted input: it can come from anywhere, and can be damaged or made up on
+// purpose. Before anything is restored, every value is checked to be the right kind and a sensible
+// size. A single bad value refuses the whole file, and the phone's data is left exactly as it is.
+
+typedef _Rule = bool Function(Object? value);
+
+final _datePattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+final _monthPattern = RegExp(r'^(\d{4})-(\d{2})$');
+
+bool _isInt(Object? v) => v is int;
+bool _isBool(Object? v) => v is bool;
+_Rule _intIn(int low, int high) => (v) => v is int && v >= low && v <= high;
+_Rule _text(int max, {bool allowEmpty = true}) =>
+    (v) => v is String && v.length <= max && (allowEmpty || v.isNotEmpty);
+_Rule _oneOf(Set<String> values) => (v) => v is String && values.contains(v);
+_Rule _optional(_Rule rule) => (v) => v == null || rule(v);
+
+bool _isDay(Object? v) {
+  if (v is! String) return false;
+  final m = _datePattern.firstMatch(v);
+  if (m == null) return false;
+  final month = int.parse(m.group(2)!);
+  final day = int.parse(m.group(3)!);
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+bool _isMonth(Object? v) {
+  if (v is! String) return false;
+  final m = _monthPattern.firstMatch(v);
+  if (m == null) return false;
+  final month = int.parse(m.group(2)!);
+  return month >= 1 && month <= 12;
+}
+
+/// Money: whole poisha, never negative, and below ten billion Taka.
+final _money = _intIn(0, 1000000000000000);
+
+/// A money change that may take money out (a goal withdrawal).
+final _signedMoney = _intIn(-1000000000000000, 1000000000000000);
+
+final _types = {'expense', 'income'};
+
+/// What each table's columns must look like. Columns not listed here are ignored, and columns
+/// that older versions did not have may be missing (they are filled in on restore).
+final Map<String, Map<String, _Rule>> _tableRules = {
+  'categories': {
+    'id': _isInt,
+    'name': _text(40, allowEmpty: false),
+    'type': _oneOf(_types),
+    'iconKey': _text(40),
+    'colorValue': _isInt,
+    'sortOrder': _isInt,
+    'isArchived': _isBool,
+  },
+  'entries': {
+    'id': _isInt,
+    'type': _oneOf(_types),
+    'amountPoisha': _money,
+    'categoryId': _isInt,
+    'paymentMethod': _optional(_text(60)),
+    'note': _optional(_text(2000)),
+    'date': _isDay,
+    'createdAt': _isInt,
+    'recurringId': _optional(_isInt),
+  },
+  'dayStatuses': {'date': _isDay, 'noSpend': _isBool},
+  'budgets': {'id': _isInt, 'categoryId': _optional(_isInt), 'amountPoisha': _money},
+  'recurrings': {
+    'id': _isInt,
+    'title': _text(40, allowEmpty: false),
+    'type': _oneOf(_types),
+    'amountPoisha': _money,
+    'categoryId': _isInt,
+    'dayOfMonth': _intIn(1, 31),
+    'isActive': _isBool,
+    'lastHandledMonth': _optional(_isMonth),
+    'autoAdd': _optional(_isBool),
+    'startMonth': _optional(_isMonth),
+  },
+  'savingsGoals': {
+    'id': _isInt,
+    'name': _text(40, allowEmpty: false),
+    'targetPoisha': _money,
+    'deadline': _optional(_isDay),
+    'colorValue': _isInt,
+  },
+  'goalDeposits': {'id': _isInt, 'goalId': _isInt, 'amountPoisha': _signedMoney, 'date': _isDay},
+  'dharRecords': {
+    'id': _isInt,
+    'person': _text(40, allowEmpty: false),
+    'direction': _oneOf({'lent', 'borrowed'}),
+    'amountPoisha': _money,
+    'date': _isDay,
+    'dueDate': _optional(_isDay),
+    'note': _optional(_text(2000)),
+    'settled': _isBool,
+  },
+  'dharPayments': {'id': _isInt, 'dharId': _isInt, 'amountPoisha': _money, 'date': _isDay},
+};
+
+void _validateRows(Map<String, dynamic> data) {
+  const damaged = BackupException('That backup file is damaged.');
+  for (final entry in _tableRules.entries) {
+    final rows = data[entry.key];
+    if (rows == null) continue; // an older backup may not have this table
+    if (rows is! List || rows.length > maxBackupRows) throw damaged;
+    for (final row in rows) {
+      if (row is! Map) throw damaged;
+      for (final column in entry.value.entries) {
+        if (!column.value(row[column.key])) throw damaged;
+      }
+    }
+  }
+  // The settings travel with the data but are only ever read as a few known keys of known types.
+  final settings = data['settings'];
+  if (settings != null && settings is! Map) throw damaged;
+}
+
 
 /// Replaces everything in the database with the contents of [backup].
 ///

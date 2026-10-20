@@ -13,10 +13,12 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/sheet.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
+import '../../data/logic/auto_income.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
 import '../add_entry/entry_actions.dart';
 
+/// Monthly bills (which ask first) and monthly income (which can add itself), in one place.
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
 
@@ -28,9 +30,64 @@ class RecurringScreen extends ConsumerWidget {
     final items = ref.watch(recurringsProvider).value ?? const <Recurring>[];
     final categories = {for (final c in ref.watch(categoriesProvider).value ?? const <Category>[]) c.id: c};
     final db = ref.read(databaseProvider);
+    final income = items.where((r) => r.type == EntryType.income).toList();
+    final bills = items.where((r) => r.type != EntryType.income).toList();
+    final total = ref.watch(monthlyIncomeTotalProvider);
+
+    Widget card(Recurring r) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: AppCard(
+            onTap: () => showRecurringEditor(context, existing: r),
+            padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: Color(categories[r.categoryId]?.colorValue ?? 0xFF94A3A0),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(iconForKey(categories[r.categoryId]?.iconKey ?? 'dots'), color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(r.title, style: theme.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        '${r.type == EntryType.income ? '+' : ''}${formatTaka(r.amountPoisha)} · every month on day ${r.dayOfMonth}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+                      ),
+                      Text(
+                        !r.isActive
+                            ? 'Paused'
+                            : r.autoAdd
+                                ? 'Adds itself · next ${DateFormat('d MMM').format(nextRecurringDate(r, today))}'
+                                : 'Asks you first · next ${DateFormat('d MMM').format(nextRecurringDate(r, today))}',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: r.isActive,
+                  onChanged: (v) => db.updateRecurring(r.copyWith(isActive: v)),
+                ),
+                IconButton(
+                  tooltip: 'Delete this item',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _deleteWithUndo(context, ref, r),
+                  icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
+                ),
+              ],
+            ),
+          ),
+        );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Recurring bills')),
+      appBar: AppBar(title: const Text('Monthly bills & income')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showRecurringEditor(context),
         icon: const Icon(Icons.add_rounded),
@@ -39,72 +96,60 @@ class RecurringScreen extends ConsumerWidget {
       body: items.isEmpty
           ? const EmptyState(
               icon: Icons.event_repeat_rounded,
-              title: 'No recurring bills yet',
-              message: 'Add rent, Wi-Fi or your salary. On the day it is due, Hisab asks you to confirm it with one tap.',
+              title: 'Nothing monthly yet',
+              message:
+                  'Add your salary and it records itself every month. Add rent or Wi-Fi and Hisab asks you to confirm it with one tap.',
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 96),
               children: [
-                for (final r in items)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: AppCard(
-                      onTap: () => showRecurringEditor(context, existing: r),
-                      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: Color(categories[r.categoryId]?.colorValue ?? 0xFF94A3A0),
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            child: Icon(
-                              iconForKey(categories[r.categoryId]?.iconKey ?? 'dots'),
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(r.title, style: theme.textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                                Text(
-                                  '${r.type == EntryType.income ? '+' : ''}${formatTaka(r.amountPoisha)} · every month on day ${r.dayOfMonth}',
-                                  style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
-                                ),
-                                Text(
-                                  r.isActive ? 'Next: ${DateFormat('d MMM').format(nextRecurringDate(r, today))}' : 'Paused',
-                                  style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch(
-                            value: r.isActive,
-                            onChanged: (v) => db.updateRecurring(r.copyWith(isActive: v)),
-                          ),
-                        ],
+                if (income.isNotEmpty) ...[
+                  const SectionTitle('Monthly income'),
+                  for (final r in income) card(r),
+                  if (total > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 4),
+                      child: Text(
+                        'Regular income: ${formatTaka(total)} a month',
+                        style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
                       ),
                     ),
-                  ),
+                ],
+                if (bills.isNotEmpty) ...[
+                  const SectionTitle('Monthly bills'),
+                  for (final r in bills) card(r),
+                ],
               ],
             ),
     );
   }
 }
 
-Future<void> showRecurringEditor(BuildContext context, {Recurring? existing}) {
-  return showAppSheet<void>(context, builder: (_) => _RecurringEditor(existing: existing));
+/// Deletes a recurring item and offers "Undo". Entries it already created are not touched.
+Future<void> _deleteWithUndo(BuildContext context, WidgetRef ref, Recurring item) async {
+  final db = ref.read(databaseProvider);
+  final messenger = ScaffoldMessenger.of(context);
+  await db.deleteRecurring(item.id);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text('Deleted ${item.title}'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreRecurring(item)),
+      ),
+    );
+}
+
+Future<void> showRecurringEditor(BuildContext context, {Recurring? existing, String? initialType}) {
+  return showAppSheet<void>(context, builder: (_) => _RecurringEditor(existing: existing, initialType: initialType));
 }
 
 class _RecurringEditor extends ConsumerStatefulWidget {
-  const _RecurringEditor({this.existing});
+  const _RecurringEditor({this.existing, this.initialType});
 
   final Recurring? existing;
+  final String? initialType;
 
   @override
   ConsumerState<_RecurringEditor> createState() => _RecurringEditorState();
@@ -117,6 +162,12 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
   int? _categoryId;
   int _day = 1;
 
+  /// Income only: record it by itself on its day.
+  bool _auto = true;
+
+  /// New automatic income only: this month's money counts as already received.
+  late bool _received;
+
   @override
   void initState() {
     super.initState();
@@ -127,7 +178,11 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
       _type = r.type;
       _categoryId = r.categoryId;
       _day = r.dayOfMonth;
+      _auto = r.autoAdd;
+    } else if (widget.initialType != null) {
+      _type = widget.initialType!;
     }
+    _received = _day <= ref.read(todayProvider).day;
   }
 
   @override
@@ -137,6 +192,8 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
     super.dispose();
   }
 
+  bool get _isIncome => _type == EntryType.income;
+
   bool get _canSave => _title.text.trim().isNotEmpty && readAmount(_amount) != null && _categoryId != null;
 
   Future<void> _save() async {
@@ -145,14 +202,27 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
     if (amount == null || categoryId == null) return;
     final db = ref.read(databaseProvider);
     final existing = widget.existing;
+    final auto = _isIncome && _auto;
     if (existing == null) {
-      await db.addRecurring(
-        title: _title.text.trim(),
-        type: _type,
-        amountPoisha: amount,
-        categoryId: categoryId,
-        dayOfMonth: _day,
-      );
+      if (auto) {
+        await createMonthlyIncome(
+          db,
+          ref.read(todayProvider),
+          title: _title.text.trim(),
+          amountPoisha: amount,
+          categoryId: categoryId,
+          dayOfMonth: _day,
+          receivedThisMonth: _received,
+        );
+      } else {
+        await db.addRecurring(
+          title: _title.text.trim(),
+          type: _type,
+          amountPoisha: amount,
+          categoryId: categoryId,
+          dayOfMonth: _day,
+        );
+      }
     } else {
       await db.updateRecurring(
         existing.copyWith(
@@ -161,6 +231,7 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
           amountPoisha: amount,
           categoryId: categoryId,
           dayOfMonth: _day,
+          autoAdd: auto,
         ),
       );
     }
@@ -177,13 +248,14 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
     final theme = Theme.of(context);
     final colors = context.hisab;
     final categories = ref.watch(pickableCategoriesProvider(_type));
+    final isNew = widget.existing == null;
 
     return SheetScaffold(
       footer: FilledButton(onPressed: _canSave ? _save : null, child: const Text('Save')),
       children: [
         SheetHeader(
-          widget.existing == null ? 'New recurring item' : 'Edit recurring item',
-          trailing: widget.existing == null
+          isNew ? 'New monthly item' : 'Edit monthly item',
+          trailing: isNew
               ? null
               : IconButton(
                   tooltip: 'Delete',
@@ -209,7 +281,7 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
           maxLength: 40,
           textCapitalization: TextCapitalization.sentences,
           onChanged: (_) => setState(() {}),
-          decoration: fieldDecoration(context, label: 'Name (like Rent or Wi-Fi)'),
+          decoration: fieldDecoration(context, label: _isIncome ? 'Name (like Salary or Tuition)' : 'Name (like Rent or Wi-Fi)'),
         ),
         const SizedBox(height: 4),
         AmountField(
@@ -219,7 +291,9 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
         ),
         const SizedBox(height: 4),
         Text(
-          'You can change the amount when you confirm it each month.',
+          _isIncome && _auto
+              ? 'You can change a month\'s amount from the note on Home.'
+              : 'You can change the amount when you confirm it each month.',
           style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
         ),
         const SizedBox(height: 16),
@@ -233,15 +307,36 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
         const SizedBox(height: 16),
         DropdownButtonFormField<int>(
           initialValue: _day,
-          decoration: fieldDecoration(context, label: 'Day of the month'),
+          decoration: fieldDecoration(context, label: _isIncome ? 'It arrives on day' : 'Day of the month'),
           items: [for (var d = 1; d <= 31; d++) DropdownMenuItem(value: d, child: Text('Day $d'))],
-          onChanged: (v) => setState(() => _day = v ?? _day),
+          onChanged: (v) => setState(() {
+            _day = v ?? _day;
+            if (isNew) _received = _day <= ref.read(todayProvider).day;
+          }),
         ),
         const SizedBox(height: 4),
         Text(
           'In shorter months it falls on the last day.',
           style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
         ),
+        if (_isIncome) ...[
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _auto,
+            onChanged: (v) => setState(() => _auto = v),
+            title: const Text('Add it automatically'),
+            subtitle: Text(_auto ? 'Recorded for you on its day' : 'Hisab asks you to confirm it each month'),
+          ),
+          if (isNew && _auto)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _received,
+              onChanged: (v) => setState(() => _received = v),
+              title: const Text('Already received this month'),
+              subtitle: Text(_received ? 'Counts toward this month now' : 'The first one is next month'),
+            ),
+        ],
       ],
     );
   }

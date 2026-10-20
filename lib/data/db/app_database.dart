@@ -1,5 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:sqlite3/common.dart' show CommonDatabase;
+
+import 'database_security.dart';
 
 import 'default_categories.dart';
 import 'tables.dart';
@@ -27,18 +30,35 @@ class EntryWithCategory {
     GoalDeposits,
     DharRecords,
     DharPayments,
+    EraseSnapshots,
   ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Pass an in-memory executor in tests.
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'hisab'));
 
+  /// The real database: a file in the app's private storage, encrypted with [keyHex] (64 hex
+  /// characters). A null key opens it unencrypted, for a phone that cannot provide one.
+  /// Call `prepareDatabase` on [path] first, so an old unencrypted file is converted.
+  AppDatabase.onDisk({required String path, String? keyHex})
+      : super(
+          driftDatabase(
+            name: 'hisab',
+            native: DriftNativeOptions(databasePath: () async => path, setup: _withKey(keyHex)),
+          ),
+        );
+
+  /// A top-level-style closure that only captures the key (a string), so it can be handed to
+  /// the background isolate the database runs in.
+  static void Function(CommonDatabase) _withKey(String? keyHex) => (db) => applyDatabaseKey(db, keyHex);
+
   /// 1: entries, categories, no-spend days (v0.2).
   /// 2: budgets, recurring bills, savings goals, dhar (v0.3 and v0.4).
+  /// 3: monthly income that adds itself, and the erase-all safety copy (v1.0).
   ///
   /// Never edit an old step below: phones already hold data written by it.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -54,6 +74,16 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(goalDeposits);
             await m.createTable(dharRecords);
             await m.createTable(dharPayments);
+          }
+          if (from < 3) {
+            await m.addColumn(entries, entries.recurringId);
+            // A database coming from version 1 just had `recurrings` created above, already
+            // with these columns. Only version 2 phones have the old table to extend.
+            if (from >= 2) {
+              await m.addColumn(recurrings, recurrings.autoAdd);
+              await m.addColumn(recurrings, recurrings.startMonth);
+            }
+            await m.createTable(eraseSnapshots);
           }
         },
         beforeOpen: (details) async {
@@ -121,9 +151,25 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> deleteEntry(int id) => (delete(entries)..where((e) => e.id.equals(id))).go();
 
+  /// Deletes several entries at once (all or nothing).
+  Future<void> deleteEntries(Iterable<int> ids) {
+    final list = ids.toList();
+    if (list.isEmpty) return Future.value();
+    return (delete(entries)..where((e) => e.id.isIn(list))).go();
+  }
+
   /// Puts back an entry that was just deleted (used by "Undo"), keeping its id.
   Future<void> restoreEntry(Entry entry) =>
       into(entries).insert(entry, mode: InsertMode.insertOrReplace);
+
+  /// Puts back several deleted entries (all or nothing).
+  Future<void> restoreEntries(Iterable<Entry> items) {
+    return transaction(() async {
+      for (final e in items) {
+        await into(entries).insert(e, mode: InsertMode.insertOrReplace);
+      }
+    });
+  }
 
   // ---- Categories ----------------------------------------------------------
 
@@ -234,6 +280,8 @@ class AppDatabase extends _$AppDatabase {
     required int amountPoisha,
     required int categoryId,
     required int dayOfMonth,
+    bool autoAdd = false,
+    String? startMonth,
   }) {
     return into(recurrings).insert(
       RecurringsCompanion.insert(
@@ -242,6 +290,8 @@ class AppDatabase extends _$AppDatabase {
         amountPoisha: amountPoisha,
         categoryId: categoryId,
         dayOfMonth: dayOfMonth,
+        autoAdd: Value(autoAdd),
+        startMonth: Value(startMonth),
       ),
     );
   }
@@ -249,6 +299,10 @@ class AppDatabase extends _$AppDatabase {
   Future<void> updateRecurring(Recurring item) => update(recurrings).replace(item);
 
   Future<void> deleteRecurring(int id) => (delete(recurrings)..where((r) => r.id.equals(id))).go();
+
+  /// Puts back a recurring item that was just deleted (used by "Undo"), keeping its id.
+  Future<void> restoreRecurring(Recurring item) =>
+      into(recurrings).insert(item, mode: InsertMode.insertOrReplace);
 
   Future<void> markRecurringHandled(int id, String month) {
     return (update(recurrings)..where((r) => r.id.equals(id))).write(
@@ -362,4 +416,47 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> deleteDharPayment(int id) => (delete(dharPayments)..where((p) => p.id.equals(id))).go();
+
+  // ---- Erase all data ------------------------------------------------------
+
+  /// Deletes everything the person entered and puts the default categories back. The safety
+  /// copies in [eraseSnapshots] are kept. Settings are not stored here, so they are not touched.
+  Future<void> eraseEverything() {
+    return transaction(() async {
+      // Children before parents, so nothing ever points at a row that is already gone.
+      await delete(dharPayments).go();
+      await delete(dharRecords).go();
+      await delete(goalDeposits).go();
+      await delete(savingsGoals).go();
+      await delete(budgets).go();
+      await delete(recurrings).go();
+      await delete(entries).go();
+      await delete(dayStatuses).go();
+      await delete(categories).go();
+      await _seedCategories();
+    });
+  }
+
+  Stream<EraseSnapshot?> watchEraseSnapshot() {
+    return (select(eraseSnapshots)
+          ..orderBy([(s) => OrderingTerm.desc(s.id)])
+          ..limit(1))
+        .watchSingleOrNull();
+  }
+
+  /// Keeps [payload] as the one safety copy, replacing any earlier one.
+  Future<void> saveEraseSnapshot(String payload) {
+    return transaction(() async {
+      await delete(eraseSnapshots).go();
+      await into(eraseSnapshots).insert(EraseSnapshotsCompanion.insert(payload: payload));
+    });
+  }
+
+  Future<void> deleteEraseSnapshots() => delete(eraseSnapshots).go();
+
+  /// Removes safety copies older than [keepFor]. Returns how many were removed.
+  Future<int> purgeOldEraseSnapshots(Duration keepFor, {DateTime? now}) {
+    final cutoff = (now ?? DateTime.now()).subtract(keepFor);
+    return (delete(eraseSnapshots)..where((s) => s.createdAt.isSmallerThanValue(cutoff))).go();
+  }
 }
