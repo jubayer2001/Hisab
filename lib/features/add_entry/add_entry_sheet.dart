@@ -11,6 +11,7 @@ import '../../core/money.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/providers.dart';
+import 'entry_actions.dart';
 
 /// Opens the add sheet, or the edit sheet when [editing] is given.
 Future<void> showAddEntrySheet(
@@ -153,6 +154,11 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     final categories = ref.read(categoriesProvider).value ?? const <Category>[];
     final categoryName = categories.where((c) => c.id == categoryId).map((c) => c.name).firstOrNull ?? '';
 
+    // Worked out before saving, from the totals as they stand now.
+    final warning = widget.editing != null
+        ? null
+        : await budgetWarning(ref, type: _type, categoryId: categoryId, amountPoisha: amount);
+
     final editing = widget.editing;
     if (editing == null) {
       await db.addEntry(
@@ -182,8 +188,10 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('${_isEditing ? 'Updated' : 'Saved'} ${formatTaka(amount)} · $categoryName'),
-          duration: const Duration(seconds: 3),
+          content: Text(
+            '${_isEditing ? 'Updated' : 'Saved'} ${formatTaka(amount)} · $categoryName${warning == null ? '' : '\n$warning'}',
+          ),
+          duration: Duration(seconds: warning == null ? 3 : 5),
         ),
       );
   }

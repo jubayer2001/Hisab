@@ -27,6 +27,28 @@ class NotificationActionNotifier extends Notifier<String?> {
 final notificationActionProvider =
     NotifierProvider<NotificationActionNotifier, String?>(NotificationActionNotifier.new);
 
+/// Keeps the 9 AM due-date reminders for open dhar entries in step with the list.
+final dharReminderSyncProvider = Provider<void>((ref) {
+  final service = ref.watch(notificationServiceProvider);
+  final records = ref.watch(dharRecordsProvider);
+  final payments = ref.watch(dharPaymentsProvider);
+  if (records.isLoading || payments.isLoading) return;
+
+  final reminders = <DharReminder>[
+    for (final v in ref.watch(dharViewsProvider))
+      if (!v.isSettled && v.record.dueDate != null)
+        DharReminder(
+          id: v.record.id,
+          title: v.isLent ? '${v.record.person} owes you ${formatTaka(v.remaining)}' : 'Pay back ${v.record.person}',
+          body: v.isLent
+              ? 'Due today. A good time to ask for it back.'
+              : '${formatTaka(v.remaining)} is due today.',
+          due: parseDayKey(v.record.dueDate!),
+        ),
+  ];
+  unawaited(service.syncDharReminders(reminders));
+});
+
 /// Whether the system currently lets Hisab show notifications.
 final notificationsAllowedProvider = FutureProvider.autoDispose<bool>(
   (ref) => ref.watch(notificationServiceProvider).notificationsAllowed(),

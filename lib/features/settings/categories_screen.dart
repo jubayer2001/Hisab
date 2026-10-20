@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../core/category_style.dart';
+import '../../core/widgets/sheet.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/providers.dart';
@@ -38,7 +39,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               child: SegmentedButton<String>(
                 showSelectedIcon: false,
                 segments: const [
-                  ButtonSegment(value: EntryType.expense, label: Text('Expense')),
+                  ButtonSegment(
+                    value: EntryType.expense,
+                    label: Text('Expense'),
+                  ),
                   ButtonSegment(value: EntryType.income, label: Text('Income')),
                 ],
                 selected: {_type},
@@ -57,12 +61,21 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                   color: colors.card,
                   borderRadius: BorderRadius.circular(16),
                   child: ListTile(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     leading: Container(
                       width: 40,
                       height: 40,
-                      decoration: BoxDecoration(color: Color(c.colorValue), borderRadius: BorderRadius.circular(12)),
-                      child: Icon(iconForKey(c.iconKey), color: Colors.white, size: 22),
+                      decoration: BoxDecoration(
+                        color: Color(c.colorValue),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        iconForKey(c.iconKey),
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ),
                     title: Text(c.name),
                     trailing: const Icon(Icons.edit_outlined, size: 20),
@@ -77,12 +90,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     );
   }
 
-  Future<void> _showEditor(BuildContext context, {required String type, Category? existing}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+  Future<void> _showEditor(
+    BuildContext context, {
+    required String type,
+    Category? existing,
+  }) {
+    return showAppSheet<void>(
+      context,
       builder: (_) => _CategoryEditor(type: type, existing: existing),
     );
   }
@@ -126,9 +140,20 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
     final name = _name.text.trim();
     final existing = widget.existing;
     if (existing == null) {
-      await db.addCategory(name: name, type: widget.type, iconKey: _iconKey, colorValue: _colorValue);
+      await db.addCategory(
+        name: name,
+        type: widget.type,
+        iconKey: _iconKey,
+        colorValue: _colorValue,
+      );
     } else {
-      await db.updateCategory(existing.copyWith(name: name, iconKey: _iconKey, colorValue: _colorValue));
+      await db.updateCategory(
+        existing.copyWith(
+          name: name,
+          iconKey: _iconKey,
+          colorValue: _colorValue,
+        ),
+      );
     }
     if (mounted) Navigator.of(context).pop();
   }
@@ -160,104 +185,115 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
     final colors = context.hisab;
     final scheme = theme.colorScheme;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SheetScaffold(
+      footer: FilledButton(
+        onPressed: _canSave ? _save : null,
+        child: const Text('Save'),
+      ),
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.existing == null ? 'New category' : 'Edit category',
-                    style: theme.textTheme.titleLarge,
-                  ),
-                ),
-                if (widget.existing != null)
-                  IconButton(
-                    tooltip: 'Delete',
-                    onPressed: _remove,
-                    icon: Icon(Icons.delete_outline_rounded, color: colors.spending),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _name,
-              maxLength: 24,
-              autofocus: widget.existing == null,
-              textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(
-                labelText: 'Name',
-                counterText: '',
-                filled: true,
-                fillColor: colors.card,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+            Expanded(
+              child: Text(
+                widget.existing == null ? 'New category' : 'Edit category',
+                style: theme.textTheme.titleLarge,
               ),
             ),
-            const SizedBox(height: 16),
-            Text('Icon', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final entry in categoryIcons.entries)
-                  InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => setState(() => _iconKey = entry.key),
-                    child: Container(
-                      width: 46,
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: entry.key == _iconKey ? scheme.primaryContainer : colors.card,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: entry.key == _iconKey ? scheme.primary : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: Icon(entry.value, color: scheme.onSurface),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('Colour', style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final c in categoryPalette)
-                  InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () => setState(() => _colorValue = c.toARGB32()),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: c,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: c.toARGB32() == _colorValue ? scheme.onSurface : Colors.transparent,
-                          width: 2.5,
-                        ),
-                      ),
-                      child: c.toARGB32() == _colorValue
-                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
-                          : null,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            FilledButton(onPressed: _canSave ? _save : null, child: const Text('Save')),
+            if (widget.existing != null)
+              IconButton(
+                tooltip: 'Delete',
+                onPressed: _remove,
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  color: colors.spending,
+                ),
+              ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _name,
+          maxLength: 24,
+          autofocus: widget.existing == null,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            labelText: 'Name',
+            counterText: '',
+            filled: true,
+            fillColor: colors.card,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text('Icon', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final entry in categoryIcons.entries)
+              InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => setState(() => _iconKey = entry.key),
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: entry.key == _iconKey
+                        ? scheme.primaryContainer
+                        : colors.card,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: entry.key == _iconKey
+                          ? scheme.primary
+                          : Colors.transparent,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Icon(entry.value, color: scheme.onSurface),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Text('Colour', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final c in categoryPalette)
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => setState(() => _colorValue = c.toARGB32()),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: c.toARGB32() == _colorValue
+                          ? scheme.onSurface
+                          : Colors.transparent,
+                      width: 2.5,
+                    ),
+                  ),
+                  child: c.toARGB32() == _colorValue
+                      ? const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        )
+                      : null,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -104,6 +104,47 @@ class NotificationService {
     );
   }
 
+  static const _dharIdBase = 20000;
+  static const _dharIdRange = 10000;
+  static const _dharChannelId = 'dhar_due';
+
+  /// Schedules a 9 AM reminder on the due date of each open dhar entry, replacing the
+  /// previous set, so settled or deleted entries stop reminding.
+  Future<void> syncDharReminders(List<DharReminder> reminders) async {
+    final pending = await _plugin.pendingNotificationRequests();
+    for (final p in pending) {
+      if (p.id >= _dharIdBase && p.id < _dharIdBase + _dharIdRange) await _plugin.cancel(id: p.id);
+    }
+    if (reminders.isEmpty || !await notificationsAllowed()) return;
+
+    final mode = await canUseExactAlarms()
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+    final now = tz.TZDateTime.now(tz.local);
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        _dharChannelId,
+        'Dhar due dates',
+        channelDescription: 'Reminders when money you lent or borrowed is due',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
+    );
+
+    for (final r in reminders) {
+      final when = tz.TZDateTime(tz.local, r.due.year, r.due.month, r.due.day, 9);
+      if (when.isBefore(now)) continue;
+      await _plugin.zonedSchedule(
+        id: _dharIdBase + (r.id % _dharIdRange),
+        title: r.title,
+        body: r.body,
+        scheduledDate: when,
+        notificationDetails: details,
+        androidScheduleMode: mode,
+      );
+    }
+  }
+
   /// Replaces every pending reminder with the next [_days] evenings.
   ///
   /// [todayBody] is tonight's message, or null to skip tonight (day already settled).
@@ -136,6 +177,16 @@ class NotificationService {
       );
     }
   }
+}
+
+/// A reminder for a dhar entry that falls due.
+class DharReminder {
+  const DharReminder({required this.id, required this.title, required this.body, required this.due});
+
+  final int id;
+  final String title;
+  final String body;
+  final DateTime due;
 }
 
 /// "10:00 PM" style label for a reminder time.

@@ -54,8 +54,9 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     await prefs.setBool(reminderPermissionAskedKey, true);
     await ref.read(notificationServiceProvider).requestPermission();
     ref.invalidate(notificationsAllowedProvider);
-    // Re-run the scheduler now that the permission may have been granted.
+    // Re-run the schedulers now that the permission may have been granted.
     ref.invalidate(reminderSyncProvider);
+    ref.invalidate(dharReminderSyncProvider);
   }
 
   Future<void> _handleAction(String action) async {
@@ -86,8 +87,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    // Keeps tonight's reminder text in step with what has been logged.
+    // Keeps tonight's reminder text in step with what has been logged, and the 9 AM
+    // reminders for dhar due dates in step with the dhar list.
     ref.watch(reminderSyncProvider);
+    ref.watch(dharReminderSyncProvider);
 
     return Scaffold(
       body: widget.shell,
@@ -99,7 +102,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'History'),
           NavigationDestination(icon: _AddButton(), label: 'Add'),
           NavigationDestination(icon: Icon(Icons.insert_chart_outlined), selectedIcon: Icon(Icons.insert_chart), label: 'Reports'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: 'Settings'),
+          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'More'),
         ],
       ),
     );

@@ -37,8 +37,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _refreshPermissions() {
     ref.invalidate(notificationsAllowedProvider);
     ref.invalidate(exactAlarmsAllowedProvider);
-    // Re-run the scheduler: the permission may have just been granted.
+    // Re-run the schedulers: the permission may have just been granted.
     ref.invalidate(reminderSyncProvider);
+    ref.invalidate(dharReminderSyncProvider);
   }
 
   Future<void> _toggleReminder(bool on) async {
@@ -72,10 +73,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: const Text('More')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
+          const SizedBox(height: 4),
+          Material(
+            color: colors.card,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                _ToolTile(
+                  icon: Icons.speed_rounded,
+                  title: 'Budgets',
+                  subtitle: 'Monthly and per-category limits',
+                  route: '/budgets',
+                ),
+                const Divider(indent: 72, endIndent: 16),
+                _ToolTile(
+                  icon: Icons.savings_outlined,
+                  title: 'Savings goals',
+                  subtitle: 'Save for something, step by step',
+                  route: '/goals',
+                ),
+                const Divider(indent: 72, endIndent: 16),
+                _ToolTile(
+                  icon: Icons.handshake_outlined,
+                  title: 'Dhar',
+                  subtitle: 'Money you lent or borrowed',
+                  route: '/dhar',
+                ),
+                const Divider(indent: 72, endIndent: 16),
+                _ToolTile(
+                  icon: Icons.event_repeat_rounded,
+                  title: 'Recurring bills',
+                  subtitle: 'Rent, Wi-Fi, recharge, salary',
+                  route: '/recurring',
+                ),
+                const Divider(indent: 72, endIndent: 16),
+                _ToolTile(
+                  icon: Icons.category_outlined,
+                  title: 'Categories',
+                  subtitle: 'Add, edit or hide categories',
+                  route: '/categories',
+                ),
+              ],
+            ),
+          ),
           section('Daily reminder'),
           Material(
             color: colors.card,
@@ -131,19 +176,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
           const SizedBox(height: 12),
           const _ReminderGuide(),
-          section('Your data'),
-          Material(
-            color: colors.card,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: ListTile(
-              leading: const Icon(Icons.category_outlined),
-              title: const Text('Categories'),
-              subtitle: const Text('Add, edit or hide expense and income categories'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => context.push('/categories'),
-            ),
-          ),
           section('Appearance'),
           SegmentedButton<ThemeMode>(
             segments: const [
@@ -169,6 +201,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  const _ToolTile({required this.icon, required this.title, required this.subtitle, required this.route});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+      ),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: () => context.push(route),
     );
   }
 }
