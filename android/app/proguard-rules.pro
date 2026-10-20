@@ -12,6 +12,5 @@
 # Reminder notifications are stored as JSON (Gson) and read back by the boot receiver.
 -keep class com.dexterous.flutterlocalnotifications.** { *; }
 -keepattributes Signature,*Annotation*
--keep class dev.fluttercommunity.plus.packageinfo.** { *; }
 -keep class com.github.dart_lang.jni.** { *; }
 -dontwarn com.github.dart_lang.jni.**

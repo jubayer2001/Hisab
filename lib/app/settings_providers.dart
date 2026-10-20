@@ -69,3 +69,53 @@ final reminderSettingsProvider =
 
 /// Remembers that the notification permission question was already shown once.
 const reminderPermissionAskedKey = 'reminderPermissionAsked';
+
+/// True once the welcome screens have been completed or skipped.
+const onboardingDoneKey = 'onboardingDone';
+
+class OnboardingDoneNotifier extends Notifier<bool> {
+  @override
+  bool build() => ref.watch(sharedPrefsProvider).getBool(onboardingDoneKey) ?? false;
+
+  void finish() {
+    state = true;
+    ref.read(sharedPrefsProvider).setBool(onboardingDoneKey, true);
+  }
+}
+
+final onboardingDoneProvider = NotifierProvider<OnboardingDoneNotifier, bool>(OnboardingDoneNotifier.new);
+
+/// The name shown in the Home greeting. Empty when the user did not give one.
+class UserNameNotifier extends Notifier<String> {
+  static const _key = 'userName';
+
+  @override
+  String build() => ref.watch(sharedPrefsProvider).getString(_key) ?? '';
+
+  void set(String name) {
+    final clean = name.trim();
+    state = clean;
+    ref.read(sharedPrefsProvider).setString(_key, clean);
+  }
+}
+
+final userNameProvider = NotifierProvider<UserNameNotifier, String>(UserNameNotifier.new);
+
+/// When the last backup file was saved (millisecondsSinceEpoch), or null if never.
+class LastBackupNotifier extends Notifier<DateTime?> {
+  static const _key = 'lastBackupAt';
+
+  @override
+  DateTime? build() {
+    final ms = ref.watch(sharedPrefsProvider).getInt(_key);
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  void markNow() {
+    final now = DateTime.now();
+    state = now;
+    ref.read(sharedPrefsProvider).setInt(_key, now.millisecondsSinceEpoch);
+  }
+}
+
+final lastBackupProvider = NotifierProvider<LastBackupNotifier, DateTime?>(LastBackupNotifier.new);

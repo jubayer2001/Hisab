@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../app/theme.dart';
 import '../money.dart';
 
 /// A text field for typing a Taka amount (digits and one decimal point).
@@ -49,15 +48,23 @@ String amountToText(int poisha) {
   return '$taka.${rest.toString().padLeft(2, '0')}'.replaceFirst(RegExp(r'0$'), '');
 }
 
-/// The filled, borderless look used for every text field in the app.
+/// The look used for every text field in the app. The fill is the page tone (not the card
+/// white) with a hairline border, so a field stays visible inside a white sheet too.
 InputDecoration fieldDecoration(BuildContext context, {String? label, String? hint, String? prefix}) {
+  final scheme = Theme.of(context).colorScheme;
+  final border = OutlineInputBorder(
+    borderRadius: BorderRadius.circular(14),
+    borderSide: BorderSide(color: scheme.outlineVariant),
+  );
   return InputDecoration(
     labelText: label,
     hintText: hint,
     prefixText: prefix,
     counterText: '',
     filled: true,
-    fillColor: context.hisab.card,
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+    fillColor: scheme.surface,
+    border: border,
+    enabledBorder: border,
+    focusedBorder: border.copyWith(borderSide: BorderSide(color: scheme.primary, width: 1.5)),
   );
 }

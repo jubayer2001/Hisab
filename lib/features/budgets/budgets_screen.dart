@@ -102,7 +102,8 @@ class BudgetsScreen extends ConsumerWidget {
                     Text(
                       daysLeft <= 1
                           ? 'Last day of the month'
-                          : 'About ${formatTaka(overall.remaining ~/ daysLeft)} a day for the next $daysLeft days',
+                          // Whole Taka, rounded down, so the daily figure is never over-promised.
+                          : 'About ${formatTaka((overall.remaining ~/ daysLeft) ~/ 100 * 100)} a day for the next $daysLeft days',
                       style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
                     ),
                   ],
