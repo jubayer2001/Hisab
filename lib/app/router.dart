@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/backup/backup_screen.dart';
+import '../features/account/account_screen.dart';
+import '../features/account/erase_screen.dart';
 import '../features/budgets/budgets_screen.dart';
 import '../features/dhar/dhar_screen.dart';
 import '../features/goals/goals_screen.dart';
 import '../features/history/history_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/recurring/recurring_screen.dart';
+import '../features/security/privacy_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/settings/categories_screen.dart';
 import '../features/settings/settings_screen.dart';
@@ -46,6 +48,8 @@ GoRouter _buildRouter() => GoRouter(
     GoRoute(path: '/recurring', builder: (context, state) => const RecurringScreen()),
     GoRoute(path: '/goals', builder: (context, state) => const GoalsScreen()),
     GoRoute(path: '/dhar', builder: (context, state) => const DharScreen()),
-    GoRoute(path: '/backup', builder: (context, state) => const BackupScreen()),
+    GoRoute(path: '/account', builder: (context, state) => const AccountScreen()),
+    GoRoute(path: '/erase', builder: (context, state) => const EraseScreen()),
+    GoRoute(path: '/privacy', builder: (context, state) => const PrivacyScreen()),
   ],
 );

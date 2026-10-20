@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hisab only ever talks to Google over HTTPS. Plain HTTP is refused, and only the phone's
+     own trusted certificate authorities are accepted, not ones added by the user or an app. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

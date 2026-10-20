@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/dates.dart';
+import '../data/erase.dart';
 import '../data/providers.dart';
 import '../features/add_entry/add_entry_sheet.dart';
 import '../services/notifications.dart';
@@ -29,6 +32,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      // An erase can only be undone for a week; after that its safety copy is removed.
+      unawaited(ref.read(eraseActionsProvider).purgeExpired());
       // A notification button pressed while the app was closed (or open) lands here.
       ref.listenManual<String?>(notificationActionProvider, (_, action) {
         if (action != null) _handleAction(action);
@@ -91,6 +96,8 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     // reminders for dhar due dates in step with the dhar list.
     ref.watch(reminderSyncProvider);
     ref.watch(dharReminderSyncProvider);
+    // Monthly income that is due adds itself.
+    ref.watch(autoIncomeSyncProvider);
 
     return Scaffold(
       body: widget.shell,

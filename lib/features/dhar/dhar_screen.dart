@@ -7,6 +7,7 @@ import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/widgets/amount_field.dart';
 import '../../core/widgets/app_card.dart';
+import '../../core/widgets/confirm_dialog.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/level_bar.dart';
 import '../../core/widgets/sheet.dart';
@@ -126,14 +127,26 @@ class _DharScreenState extends ConsumerState<DharScreen> {
   }
 }
 
-class _DharCard extends StatelessWidget {
+class _DharCard extends ConsumerWidget {
   const _DharCard({required this.view, required this.today});
 
   final DharView view;
   final DateTime today;
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final payments = view.payments.length;
+    final what = payments == 0 ? '' : ' and ${payments == 1 ? '1 payment' : '$payments payments'}';
+    final ok = await confirmDestructive(
+      context,
+      title: 'Delete this entry?',
+      message: '${view.record.person}$what will be deleted. '
+          'This is never counted as spending, so your balance does not change.',
+    );
+    if (ok) await ref.read(databaseProvider).deleteDhar(view.record.id);
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colors = context.hisab;
     final r = view.record;
@@ -190,6 +203,12 @@ class _DharCard extends StatelessWidget {
                     if (view.paid > 0 && !view.isSettled)
                       Text('of ${formatTaka(view.total)}', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
                   ],
+                ),
+                IconButton(
+                  tooltip: 'Delete this entry',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _delete(context, ref),
+                  icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
                 ),
               ],
             ),

@@ -38,7 +38,7 @@ Future<Map<String, Object?>> _snapshot(AppDatabase db) async {
   return {for (final e in b.entries) if (e.key != 'exportedAt') e.key: e.value};
 }
 
-BackupContents _parse(Uint8List bytes) => parseBackup(bytes, currentSchemaVersion: 2);
+BackupContents _parse(Uint8List bytes) => parseBackup(bytes, currentSchemaVersion: 3);
 
 void main() {
   late AppDatabase db;
@@ -124,7 +124,7 @@ void main() {
 
     test('rejects a backup from a newer version of the app', () {
       expect(
-        () => _parse(json({'format': 'hisab-backup', 'formatVersion': 1, 'schemaVersion': 3, 'categories': [], 'entries': []})),
+        () => _parse(json({'format': 'hisab-backup', 'formatVersion': 1, 'schemaVersion': 4, 'categories': [], 'entries': []})),
         throwsA(isA<BackupException>().having((e) => e.message, 'message', contains('newer version'))),
       );
       expect(

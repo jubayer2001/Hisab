@@ -1,0 +1,18 @@
+# Keeps the build tools and the app's libraries up to date, which is how known security
+# problems in them get fixed. Each update arrives as a pull request that runs the full test
+# suite first, so nothing changes without being checked.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly

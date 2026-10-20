@@ -209,8 +209,8 @@ void main() {
 
   testWidgets('Recurring: create one from the screen', (tester) async {
     await h.pumpApp(tester);
-    await h.openFromMore(tester, 'Recurring bills');
-    expect(find.text('No recurring bills yet'), findsOneWidget);
+    await h.openFromMore(tester, 'Monthly bills & income');
+    expect(find.text('Nothing monthly yet'), findsOneWidget);
 
     await tester.tap(find.text('New'));
     await h.settle(tester);

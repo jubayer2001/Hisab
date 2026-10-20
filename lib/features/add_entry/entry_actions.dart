@@ -18,8 +18,26 @@ Future<void> deleteEntryWithUndo(BuildContext context, WidgetRef ref, EntryWithC
     ..showSnackBar(
       SnackBar(
         content: Text('Deleted ${formatTaka(item.entry.amountPoisha)} · ${item.category.name}'),
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 6),
         action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntry(item.entry)),
+      ),
+    );
+}
+
+/// Deletes several entries at once and offers one "Undo" that brings them all back.
+Future<void> deleteEntriesWithUndo(BuildContext context, WidgetRef ref, List<EntryWithCategory> items) async {
+  if (items.isEmpty) return;
+  final db = ref.read(databaseProvider);
+  final messenger = ScaffoldMessenger.of(context);
+  final removed = [for (final i in items) i.entry];
+  await db.deleteEntries(removed.map((e) => e.id));
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text(removed.length == 1 ? 'Deleted 1 entry' : 'Deleted ${removed.length} entries'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntries(removed)),
       ),
     );
 }

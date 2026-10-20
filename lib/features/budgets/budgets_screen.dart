@@ -144,6 +144,12 @@ class BudgetsScreen extends ConsumerWidget {
                               fontFeatures: const [FontFeature.tabularFigures()],
                             ),
                           ),
+                          IconButton(
+                            tooltip: 'Remove this budget',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _removeWithUndo(context, ref, s),
+                            icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -163,6 +169,25 @@ class BudgetsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Removes a category budget and offers "Undo", which puts the same limit back.
+Future<void> _removeWithUndo(BuildContext context, WidgetRef ref, BudgetStatus status) async {
+  final db = ref.read(databaseProvider);
+  final messenger = ScaffoldMessenger.of(context);
+  await db.removeBudget(status.budget.id);
+  messenger
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: Text('Removed the ${status.name} budget'),
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => db.setBudget(categoryId: status.budget.categoryId, amountPoisha: status.budget.amountPoisha),
+        ),
+      ),
+    );
 }
 
 /// Opens the budget sheet. Pass [existing] to edit, [overall] to create the monthly

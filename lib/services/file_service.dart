@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/backup.dart';
+
 /// Saving a file to, and picking a file from, the phone's storage.
 ///
 /// A small interface so tests can use a fake instead of the real Android dialogs.
@@ -16,7 +18,8 @@ abstract class FileService {
   });
 
   /// Opens the system file picker. Returns the file's bytes, or null if the user cancelled.
-  Future<Uint8List?> pickFileBytes();
+  /// A file bigger than [maxBytes] is refused before it is read into memory.
+  Future<Uint8List?> pickFileBytes({int maxBytes = maxBackupBytes});
 }
 
 class PlatformFileService implements FileService {
@@ -38,9 +41,12 @@ class PlatformFileService implements FileService {
   }
 
   @override
-  Future<Uint8List?> pickFileBytes() async {
+  Future<Uint8List?> pickFileBytes({int maxBytes = maxBackupBytes}) async {
     final file = await FilePicker.pickFile(dialogTitle: 'Choose a Hisab backup');
-    return file == null ? null : await file.readAsBytes();
+    if (file == null) return null;
+    // An unknown size is checked again by the backup parser once the bytes are in.
+    if ((await file.length() ?? 0) > maxBytes) throw const BackupException('That file is too large to be a Hisab backup.');
+    return await file.readAsBytes();
   }
 }
 

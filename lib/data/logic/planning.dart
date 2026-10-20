@@ -21,8 +21,9 @@ bool isRecurringDue(Recurring r, DateTime today) {
   return !dateOnly(today).isBefore(recurringDueDate(r, today));
 }
 
+/// Items waiting for a confirmation. Monthly income that adds itself never waits.
 List<Recurring> dueRecurrings(List<Recurring> all, DateTime today) =>
-    all.where((r) => isRecurringDue(r, today)).toList();
+    all.where((r) => !r.autoAdd && isRecurringDue(r, today)).toList();
 
 /// The next day this item needs attention: this month's due day if it is still waiting,
 /// otherwise next month's.
