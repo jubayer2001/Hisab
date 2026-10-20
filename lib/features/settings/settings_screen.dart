@@ -2,14 +2,15 @@ import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/settings_providers.dart';
+import '../../app/version.dart';
 import '../../app/theme.dart';
+import '../../core/widgets/amount_field.dart';
+import '../../core/widgets/sheet.dart';
 import '../../services/notifications.dart';
 import '../../services/reminder_providers.dart';
-
-final _packageInfoProvider = FutureProvider<PackageInfo>((ref) => PackageInfo.fromPlatform());
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -51,6 +52,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _refreshPermissions();
   }
 
+  Future<void> _editName() {
+    return showAppSheet<void>(context, builder: (_) => const _NameSheet());
+  }
+
   Future<void> _pickTime() async {
     final settings = ref.read(reminderSettingsProvider);
     final picked = await showTimePicker(context: context, initialTime: settings.time);
@@ -62,10 +67,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final theme = Theme.of(context);
     final colors = context.hisab;
     final mode = ref.watch(themeModeProvider);
-    final info = ref.watch(_packageInfoProvider).value;
     final reminder = ref.watch(reminderSettingsProvider);
     final allowed = ref.watch(notificationsAllowedProvider).value ?? true;
     final exactAllowed = ref.watch(exactAlarmsAllowedProvider).value ?? true;
+    final lastBackup = ref.watch(lastBackupProvider);
+    final userName = ref.watch(userNameProvider);
 
     Widget section(String text) => Padding(
           padding: const EdgeInsets.only(top: 24, bottom: 8),
@@ -118,7 +124,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   subtitle: 'Add, edit or hide categories',
                   route: '/categories',
                 ),
+                const Divider(indent: 72, endIndent: 16),
+                _ToolTile(
+                  icon: Icons.backup_outlined,
+                  title: 'Backup and restore',
+                  subtitle: lastBackup == null
+                      ? 'No backup yet'
+                      : 'Last backup: ${DateFormat('d MMM y').format(lastBackup)}',
+                  route: '/backup',
+                ),
               ],
+            ),
+          ),
+          section('Your name'),
+          Material(
+            color: colors.card,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: const Text('Name shown on Home'),
+              trailing: Text(
+                userName.isEmpty ? 'Not set' : userName,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: userName.isEmpty ? colors.muted : theme.colorScheme.primary,
+                ),
+              ),
+              onTap: _editName,
             ),
           ),
           section('Daily reminder'),
@@ -191,7 +223,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: const Text('Hisab'),
-            subtitle: Text(info == null ? 'Expense tracker' : 'Version ${info.version} (${info.buildNumber})'),
+            subtitle: const Text('Version $appVersion ($appBuildNumber)'),
           ),
           const ListTile(
             contentPadding: EdgeInsets.zero,
@@ -201,6 +233,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _NameSheet extends ConsumerStatefulWidget {
+  const _NameSheet();
+
+  @override
+  ConsumerState<_NameSheet> createState() => _NameSheetState();
+}
+
+class _NameSheetState extends ConsumerState<_NameSheet> {
+  late final TextEditingController _name;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: ref.read(userNameProvider));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    ref.read(userNameProvider.notifier).set(_name.text);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SheetScaffold(
+      footer: FilledButton(onPressed: _save, child: const Text('Save')),
+      children: [
+        const SheetHeader('Your name'),
+        TextField(
+          controller: _name,
+          maxLength: 24,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          onSubmitted: (_) => _save(),
+          decoration: fieldDecoration(context, label: 'Name (leave empty to hide it)'),
+        ),
+      ],
     );
   }
 }

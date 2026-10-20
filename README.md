@@ -15,23 +15,35 @@ A calm, offline expense tracker for Bangladesh. Track expenses, income and savin
 
 To update, download the new APK and install it over the old one. Your data stays.
 
-**Xiaomi / Redmi / POCO:** to make sure the daily reminder arrives, open Settings → Apps → Hisab and turn on **Autostart**, set **Battery saver** to **No restrictions**, and allow **Notifications**.
+**Xiaomi / Redmi / POCO:** to make sure the daily reminder arrives, open Settings → Apps → Hisab and turn on **Autostart**, set **Battery saver** to **No restrictions**, and allow **Notifications**. The app also explains this in **More → Reminder not arriving?**.
 
 Works on Android 7.0 and newer.
 
-## Features (planned for 1.0)
+## Screenshots
 
-- Add an expense in three taps: amount, category, save
-- Income, balance and savings
-- Reports by day, week, month and year
-- Monthly and per-category budgets with a warning at 80%
-- Recurring bills (rent, Wi-Fi, recharge)
-- Savings goals
-- Lend and borrow (dhar) tracker
-- Daily 10 PM reminder and logging streak
-- Backup, restore and CSV export
-- Light and dark mode
-- No ads, no account, all data stays on your phone
+The pictures use made-up sample data.
+
+| Home | Add an expense | Reports | Home, dark mode |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/home.png" width="200" alt="Home screen"> | <img src="docs/screenshots/add-expense.png" width="200" alt="Add an expense with the number keypad"> | <img src="docs/screenshots/reports.png" width="200" alt="Monthly report with a category chart"> | <img src="docs/screenshots/home-dark.png" width="200" alt="Home screen in dark mode"> |
+
+| Budgets | Savings goals | Dhar (lend and borrow) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/budgets.png" width="200" alt="Monthly and category budgets"> | <img src="docs/screenshots/goals.png" width="200" alt="Savings goals with monthly amounts needed"> | <img src="docs/screenshots/dhar.png" width="200" alt="Money lent and borrowed"> |
+
+## Features
+
+- **Add an expense in three taps:** amount, category, save. Repeat expenses (like tea) become one-tap chips.
+- **Income and balance:** see what is left of your salary or tuition money.
+- **Reports:** by day, week, month and year, with a category chart, daily bars and a comparison with the period before.
+- **Budgets:** a monthly budget and per-category budgets, with a warning at 80% and again when you go over.
+- **Recurring bills:** rent, Wi-Fi, recharge or salary. On the due day, confirm with one tap and change the amount if this month is different.
+- **Savings goals:** save for something, with the monthly amount needed to reach it on time. Saved money is never counted as spending.
+- **Dhar:** track money you lent or borrowed, with part payments and a reminder on the due date.
+- **Reminders:** a nightly reminder to add the day's expenses, and a streak counter to build the habit.
+- **Backup and restore:** save everything to one file and bring it back on any phone. Export to CSV for Excel or Google Sheets.
+- **Light and dark mode.**
+- **Private:** no ads, no account, no internet permission. All data stays on your phone.
 
 ## Roadmap
 
@@ -49,13 +61,20 @@ If a version has bugs, a small fix release (for example v0.2.1) comes before the
 
 ## Development
 
-Built with Flutter (stable 3.47), Riverpod, go_router, drift (SQLite) and Material 3.
+Built with Flutter (stable 3.47), Riverpod, go_router, drift (SQLite) and Material 3. Amounts are stored as whole poisha, never as floating point numbers.
 
 ```bash
 flutter pub get
 flutter test
 flutter run            # with a phone connected over USB
 ```
+
+Helper scripts in `tool/`:
+
+- `python tool/generate_icons.py` writes the launcher icon, themed icon and splash resources from `tool/reference/icon_final.png` (needs Pillow, OpenCV and numpy).
+- `flutter test tool/screenshots_test.dart` then `python tool/clean_screenshots.py` remake the screenshots above from sample data.
+
+Release builds shrink code with R8. Plugins that call Kotlin through JNI (like `shared_preferences`) need the keep rules in `android/app/proguard-rules.pro`. After changing plugins, test a **release** build on a phone, not only a debug run.
 
 Releases are built by GitHub Actions when a tag like `v0.1.0` is pushed. Signing uses repository secrets `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` and `KEY_PASSWORD`.
 

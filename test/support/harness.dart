@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import 'package:hisab/app/settings_providers.dart';
 import 'package:hisab/data/db/app_database.dart';
 import 'package:hisab/data/db/tables.dart';
 import 'package:hisab/data/providers.dart';
+import 'package:hisab/services/file_service.dart';
 import 'package:hisab/services/notifications.dart';
 import 'package:hisab/services/reminder_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -53,6 +56,33 @@ class FakeNotificationService extends NotificationService {
   }
 }
 
+/// Stands in for the phone's save and open dialogs.
+class FakeFileService implements FileService {
+  final List<({String name, Uint8List bytes})> saved = [];
+  final List<String> mimeTypes = [];
+
+  /// What the next "pick a file" dialog returns. Null means the user cancelled.
+  Uint8List? toPick;
+
+  /// When true, the next save dialog is cancelled.
+  bool cancelSave = false;
+
+  @override
+  Future<bool> saveBytes({
+    required String fileName,
+    required Uint8List bytes,
+    String mimeType = 'application/octet-stream',
+  }) async {
+    if (cancelSave) return false;
+    saved.add((name: fileName, bytes: bytes));
+    mimeTypes.add(mimeType);
+    return true;
+  }
+
+  @override
+  Future<Uint8List?> pickFileBytes() async => toPick;
+}
+
 /// Everything a widget test needs: an in-memory database, a fake notification service, and
 /// helpers that cope with Flutter's fake clock.
 ///
@@ -63,10 +93,12 @@ class FakeNotificationService extends NotificationService {
 class Harness {
   Harness()
       : db = AppDatabase(NativeDatabase.memory()),
-        notifications = FakeNotificationService();
+        notifications = FakeNotificationService(),
+        files = FakeFileService();
 
   final AppDatabase db;
   final FakeNotificationService notifications;
+  final FakeFileService files;
 
   Future<T> real<T>(WidgetTester tester, Future<T> Function() body) async => (await tester.runAsync(body)) as T;
 
@@ -78,13 +110,18 @@ class Harness {
     }
   }
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  /// Starts the app. By default the welcome steps are treated as already done; pass
+  /// `onboarded: false` to see them.
+  Future<void> pumpApp(WidgetTester tester, {bool onboarded = true}) async {
     // A phone-sized screen (about 392 x 873 logical pixels).
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.75;
     addTearDown(tester.view.reset);
 
-    SharedPreferences.setMockInitialValues({reminderPermissionAskedKey: true});
+    SharedPreferences.setMockInitialValues({
+      if (onboarded) reminderPermissionAskedKey: true,
+      if (onboarded) onboardingDoneKey: true,
+    });
     final prefs = await SharedPreferences.getInstance();
 
     await tester.pumpWidget(
@@ -93,6 +130,7 @@ class Harness {
           sharedPrefsProvider.overrideWithValue(prefs),
           databaseProvider.overrideWithValue(db),
           notificationServiceProvider.overrideWithValue(notifications),
+          fileServiceProvider.overrideWithValue(files),
         ],
         child: const HisabApp(),
       ),

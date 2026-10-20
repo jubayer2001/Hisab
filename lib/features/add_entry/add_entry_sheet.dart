@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../../core/category_style.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/widgets/amount_field.dart' show fieldDecoration;
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/providers.dart';
@@ -278,7 +279,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
                     crossAxisCount: 5,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: 0.98,
+                    childAspectRatio: 0.9,
                     children: [
                       for (final c in shown)
                         _CategoryChoice(
@@ -327,18 +328,10 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
                     maxLength: 60,
                     textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.done,
-                    decoration: InputDecoration(
-                      hintText: 'Note (optional)',
-                      counterText: '',
+                    decoration: fieldDecoration(context, hint: 'Note (optional)').copyWith(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       prefixIcon: const Icon(Icons.notes_rounded),
-                      filled: true,
-                      fillColor: colors.card,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide.none,
-                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -448,9 +441,14 @@ class _CategoryChoice extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Text(
                   category.name,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.labelSmall?.copyWith(
+                    // A long single word (like "Entertainment") cannot wrap, so it gets a
+                    // slightly smaller size instead of breaking in the middle.
+                    fontSize: (!category.name.contains(' ') && category.name.length > 9) ? 9.3 : 10.5,
+                    height: 1.1,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     color: selected ? scheme.primary : scheme.onSurfaceVariant,
                   ),
@@ -512,7 +510,8 @@ class _Key extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(2),
       child: Material(
-        color: context.hisab.card,
+        // The page tone, not the card white, so each key stands out from the white sheet.
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),

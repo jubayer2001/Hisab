@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../core/category_style.dart';
+import '../../core/widgets/amount_field.dart';
 import '../../core/widgets/sheet.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
@@ -216,16 +217,7 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
           maxLength: 24,
           autofocus: widget.existing == null,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            labelText: 'Name',
-            counterText: '',
-            filled: true,
-            fillColor: colors.card,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-          ),
+          decoration: fieldDecoration(context, label: 'Name'),
         ),
         const SizedBox(height: 16),
         Text('Icon', style: theme.textTheme.titleSmall),

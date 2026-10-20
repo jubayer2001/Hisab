@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/settings_providers.dart';
 import '../../app/theme.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
@@ -43,29 +44,30 @@ class HomeScreen extends ConsumerWidget {
     final overall = ref.watch(budgetStatusesProvider).where((s) => s.isOverall).firstOrNull;
     final alerts = ref.watch(budgetAlertsProvider);
     final dharDue = ref.watch(dharDueSoonProvider);
+    final name = ref.watch(userNameProvider);
 
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           children: [
+            // The date and the streak share a line, so the greeting below has the full width.
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('EEEE, d MMMM').format(today),
-                        style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-                      ),
-                      Text(_greeting(DateTime.now()), style: theme.textTheme.headlineMedium),
-                    ],
+                  child: Text(
+                    DateFormat('EEEE, d MMMM').format(today),
+                    style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
                 if (streak > 0) _StreakChip(days: streak),
               ],
+            ),
+            Text(
+              name.isEmpty ? _greeting(DateTime.now()) : '${_greeting(DateTime.now())}, $name',
+              style: theme.textTheme.headlineMedium,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 20),
             _SummaryCard(summary: summary, budget: overall),

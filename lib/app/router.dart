@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/backup/backup_screen.dart';
 import '../features/budgets/budgets_screen.dart';
 import '../features/dhar/dhar_screen.dart';
 import '../features/goals/goals_screen.dart';
@@ -45,5 +46,6 @@ GoRouter _buildRouter() => GoRouter(
     GoRoute(path: '/recurring', builder: (context, state) => const RecurringScreen()),
     GoRoute(path: '/goals', builder: (context, state) => const GoalsScreen()),
     GoRoute(path: '/dhar', builder: (context, state) => const DharScreen()),
+    GoRoute(path: '/backup', builder: (context, state) => const BackupScreen()),
   ],
 );
