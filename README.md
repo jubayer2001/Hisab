@@ -11,7 +11,7 @@ A calm, offline expense tracker for Bangladesh. Track expenses, income and savin
 1. Open the download link above in Chrome on your phone.
 2. Open the downloaded `Hisab.apk`.
 3. If asked, allow **Install unknown apps** for Chrome or your file manager.
-4. If Play Protect warns about an unknown developer, tap **More details → Install anyway**.
+4. If Play Protect says **"App blocked to protect your device"** or warns about an unknown developer, that is because Hisab is new and not (yet) on the Play Store. It is not a virus warning. Tap **More details → Install anyway**. If there is no such button, open the Play Store, tap your profile picture → **Play Protect** → the settings gear, turn off **Scan apps with Play Protect**, install Hisab, then turn it back on.
 
 To update, download the new APK and install it over the old one. Your data stays.
 
