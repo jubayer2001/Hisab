@@ -47,11 +47,12 @@ jobs:
 
       - name: Build APK
         run: |
+          # The build number (Android versionCode) comes from pubspec.yaml (the +N part), so it
+          # always matches or exceeds the test builds installed over USB. Never let it go down.
           VERSION="${GITHUB_REF_NAME#v}"
           flutter build apk --release \
             --target-platform android-arm,android-arm64 \
-            --build-name="$VERSION" \
-            --build-number="$GITHUB_RUN_NUMBER"
+            --build-name="$VERSION"
           cp build/app/outputs/flutter-apk/app-release.apk Hisab.apk
 
       - name: Publish GitHub Release

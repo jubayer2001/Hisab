@@ -1,12 +1,21 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/history/history_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/reports/reports_screen.dart';
+import '../features/settings/categories_screen.dart';
 import '../features/settings/settings_screen.dart';
 import 'app_shell.dart';
 
-final appRouter = GoRouter(
+/// One router per app instance (not a global), so each start, and each test, begins on Home.
+final routerProvider = Provider<GoRouter>((ref) {
+  final router = _buildRouter();
+  ref.onDispose(router.dispose);
+  return router;
+});
+
+GoRouter _buildRouter() => GoRouter(
   initialLocation: '/',
   routes: [
     StatefulShellRoute.indexedStack(
@@ -26,5 +35,7 @@ final appRouter = GoRouter(
         ]),
       ],
     ),
+    // Opens on top of the tab bar.
+    GoRoute(path: '/categories', builder: (context, state) => const CategoriesScreen()),
   ],
 );
