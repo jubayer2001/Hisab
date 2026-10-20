@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/dates.dart';
 import 'db/app_database.dart';
 import 'db/tables.dart';
+import 'logic/budgets.dart';
+import 'logic/planning.dart';
 import 'summary.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -73,6 +75,75 @@ final todayEntriesProvider = Provider<List<EntryWithCategory>>((ref) {
 final quickAddsProvider = Provider<List<QuickAdd>>((ref) {
   final entries = ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[];
   return computeQuickAdds(entries, ref.watch(todayProvider));
+});
+
+// ---- Budgets, bills, goals, dhar, streak (v0.3 and v0.4) -----------------------
+
+final budgetsProvider = StreamProvider<List<Budget>>((ref) => ref.watch(databaseProvider).watchBudgets());
+
+final recurringsProvider =
+    StreamProvider<List<Recurring>>((ref) => ref.watch(databaseProvider).watchRecurrings());
+
+final goalsProvider = StreamProvider<List<SavingsGoal>>((ref) => ref.watch(databaseProvider).watchGoals());
+
+final depositsProvider =
+    StreamProvider<List<GoalDeposit>>((ref) => ref.watch(databaseProvider).watchDeposits());
+
+final dharRecordsProvider = StreamProvider<List<DharRecord>>((ref) => ref.watch(databaseProvider).watchDhar());
+
+final dharPaymentsProvider =
+    StreamProvider<List<DharPayment>>((ref) => ref.watch(databaseProvider).watchDharPayments());
+
+/// How each budget stands this month (the overall one first).
+final budgetStatusesProvider = Provider<List<BudgetStatus>>((ref) {
+  return computeBudgetStatuses(
+    entries: ref.watch(allEntriesProvider).value ?? const [],
+    budgets: ref.watch(budgetsProvider).value ?? const [],
+    categories: ref.watch(categoriesProvider).value ?? const [],
+    now: ref.watch(todayProvider),
+  );
+});
+
+/// Budgets at 80% or more, for the warnings on Home.
+final budgetAlertsProvider = Provider<List<BudgetStatus>>((ref) {
+  return ref.watch(budgetStatusesProvider).where((s) => s.level != BudgetLevel.ok).toList();
+});
+
+/// Recurring bills and income waiting to be confirmed or skipped.
+final dueRecurringsProvider = Provider<List<Recurring>>((ref) {
+  return dueRecurrings(ref.watch(recurringsProvider).value ?? const [], ref.watch(todayProvider));
+});
+
+final goalProgressProvider = Provider<List<GoalProgress>>((ref) {
+  final deposits = ref.watch(depositsProvider).value ?? const <GoalDeposit>[];
+  final today = ref.watch(todayProvider);
+  return [
+    for (final g in ref.watch(goalsProvider).value ?? const <SavingsGoal>[]) computeGoalProgress(g, deposits, today),
+  ];
+});
+
+final dharViewsProvider = Provider<List<DharView>>((ref) {
+  return computeDharViews(
+    ref.watch(dharRecordsProvider).value ?? const [],
+    ref.watch(dharPaymentsProvider).value ?? const [],
+  );
+});
+
+final dharTotalsProvider = Provider<DharTotals>((ref) => computeDharTotals(ref.watch(dharViewsProvider)));
+
+/// Open dhar entries that are overdue or due within three days.
+final dharDueSoonProvider = Provider<List<DharView>>((ref) {
+  final today = ref.watch(todayProvider);
+  return ref.watch(dharViewsProvider).where((v) => v.isDueSoon(today)).toList();
+});
+
+/// Days in a row with something logged or marked "No spending".
+final streakProvider = Provider<int>((ref) {
+  final days = <String>{
+    for (final e in ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[]) e.entry.date,
+    ...?ref.watch(noSpendDaysProvider).value,
+  };
+  return computeStreak(days, ref.watch(todayProvider));
 });
 
 /// True once a day has at least one expense or has been marked "No spending today".

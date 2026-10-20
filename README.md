@@ -4,7 +4,7 @@ A calm, offline expense tracker for Bangladesh. Track expenses, income and savin
 
 **[Download the latest APK](https://github.com/jubayer2001/Hisab/releases/latest/download/Hisab.apk)** · [All releases](https://github.com/jubayer2001/Hisab/releases)
 
-> **Status: work in progress.** Daily tracking (v0.2) is built and tested on a phone. The download above is still v0.1.0, which is only the empty app shell. The first release you can use every day will be **1.0**, and it will replace that download. See the [roadmap](#roadmap).
+> **Status: work in progress.** Everything except the final polish (v1.0) is built and tested on a phone. The download above is still v0.1.0, which is only the empty app shell. The first release you can use every day will be **1.0**, and it will replace that download. See the [roadmap](#roadmap).
 
 ## Install on your Android phone
 
@@ -35,15 +35,15 @@ Works on Android 7.0 and newer.
 
 ## Roadmap
 
-There are four more versions before 1.0. Test versions go straight to the developer's phone over USB. Only 1.0 is published as a download here.
+Test versions go straight to the developer's phone over USB. Only 1.0 is published as a download here.
 
 | Version | What it adds | Status |
 |---|---|---|
 | **v0.1** | The look and navigation only: Teal Mist theme, light and dark mode, bottom bar. | Done, published |
 | **v0.2** | Add, edit and delete expenses and income. Categories, History with search, a real Home screen with today and this month, the 10 PM reminder and a battery-settings guide for Redmi and similar phones. The first version you can use every day. | Done, tested on a phone |
-| **v0.3** | Reports by day, week, month and year, with charts. Balance (income minus spending). Monthly and per-category budgets with an 80% warning. | Next |
-| **v0.4** | Recurring bills, savings goals, the dhar (lend and borrow) tracker and the logging streak. | Planned |
-| **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, CSV export, a proper app icon and splash screen, and screenshots here. Then about a week of real use on a phone before it is tagged 1.0. | Planned |
+| **v0.3** | Reports by day, week, month and year, with charts. Balance (income minus spending). Monthly and per-category budgets with an 80% warning. | Done, tested on a phone |
+| **v0.4** | Recurring bills, savings goals, the dhar (lend and borrow) tracker and the logging streak. | Done, tested on a phone |
+| **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, CSV export, a proper app icon and splash screen, and screenshots here. Then about a week of real use on a phone before it is tagged 1.0. | Next |
 
 If a version has bugs, a small fix release (for example v0.2.1) comes before the next one. Changes requested after trying a version are made before building on top of it, so the list can grow a little.
 

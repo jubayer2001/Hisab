@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../data/db/app_database.dart';
+import '../../data/logic/budgets.dart';
 import '../../data/providers.dart';
 import '../../data/summary.dart';
 
@@ -23,10 +24,38 @@ Future<void> deleteEntryWithUndo(BuildContext context, WidgetRef ref, EntryWithC
     );
 }
 
+/// A budget warning to show after saving an expense, such as "Food budget 85% used", or null.
+///
+/// This reads the current totals straight from the database. It must not use the budget
+/// providers: Riverpod pauses a screen's providers while it is hidden behind another tab,
+/// and the + button works from every tab, so they could be out of date.
+Future<String?> budgetWarning(
+  WidgetRef ref, {
+  required String type,
+  required int categoryId,
+  required int amountPoisha,
+}) async {
+  if (type != 'expense') return null;
+  final db = ref.read(databaseProvider);
+  final statuses = computeBudgetStatuses(
+    entries: await db.watchEntries().first,
+    budgets: await db.watchBudgets().first,
+    categories: await db.watchCategories().first,
+    now: ref.read(todayProvider),
+  );
+  return budgetWarningAfterAdding(statuses, categoryId: categoryId, addedPoisha: amountPoisha);
+}
+
 /// One-tap add for a repeat expense (the "Quick add" chips on Home).
 Future<void> addQuickEntry(BuildContext context, WidgetRef ref, QuickAdd quick) async {
   final db = ref.read(databaseProvider);
   final messenger = ScaffoldMessenger.of(context);
+  final warning = await budgetWarning(
+    ref,
+    type: 'expense',
+    categoryId: quick.category.id,
+    amountPoisha: quick.amountPoisha,
+  );
   final id = await db.addEntry(
     type: 'expense',
     amountPoisha: quick.amountPoisha,
@@ -38,7 +67,9 @@ Future<void> addQuickEntry(BuildContext context, WidgetRef ref, QuickAdd quick) 
     ..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: Text('Added ${quick.label} ${formatTaka(quick.amountPoisha)}'),
+        content: Text(
+          'Added ${quick.label} ${formatTaka(quick.amountPoisha)}${warning == null ? '' : '\n$warning'}',
+        ),
         duration: const Duration(seconds: 4),
         action: SnackBarAction(label: 'Undo', onPressed: () => db.deleteEntry(id)),
       ),
