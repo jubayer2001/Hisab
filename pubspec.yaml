@@ -34,7 +34,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   drift_dev: ^2.35.1
-  build_runner: ^2.16.2
+  build_runner: ^2.17.1
 
 # The database is encrypted on disk. This picks the build of SQLite that supports it
 # (SQLite3 Multiple Ciphers); the app's own key handling is in lib/data/db/database_security.dart.
