@@ -37,6 +37,10 @@ class Entries extends Table {
   /// Schema version 3: the monthly income ([Recurrings.autoAdd]) that added this entry by
   /// itself, or null for anything the person typed in.
   IntColumn get recurringId => integer().nullable()();
+
+  /// Schema 4: a real expense paid from a goal's reserved money. Keeping the
+  /// link on the expense makes edit/delete/Undo update the reservation once.
+  IntColumn get savingsGoalId => integer().nullable().references(SavingsGoals, #id, onDelete: KeyAction.setNull)();
 }
 
 /// A day the user confirmed they spent nothing. Keeps the logging streak alive.

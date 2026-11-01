@@ -4,7 +4,7 @@ A calm, offline expense tracker for Bangladesh. Track expenses, income and savin
 
 **[Download the latest APK](https://github.com/jubayer2001/Hisab/releases/latest/download/Hisab.apk)** · [All releases](https://github.com/jubayer2001/Hisab/releases)
 
-> **Version 1.0.** The first complete release: expenses, income, budgets, monthly bills and income, savings goals, dhar, reports, backup and an optional Google backup. See [what is new](https://github.com/jubayer2001/Hisab/releases/latest). Each release lists the SHA-256 of `Hisab.apk` so you can check your download.
+> **Version 1.1.** Your saved balance carries into the next month (only saved money, never a shortfall), money can be set aside for savings goals, categories can have any colour, and deleting an entry now asks first. Each release lists the SHA-256 of `Hisab.apk` so you can check your download. See [what is new](https://github.com/jubayer2001/Hisab/releases/latest).
 
 ## Install on your Android phone
 
@@ -59,6 +59,7 @@ Test versions go straight to the developer's phone over USB. Only 1.0 is publish
 | **v0.3** | Reports by day, week, month and year, with charts. Balance (income minus spending). Monthly and per-category budgets with an 80% warning. | Done, tested on a phone |
 | **v0.4** | Recurring bills, savings goals, the dhar (lend and borrow) tracker and the logging streak. | Done, tested on a phone |
 | **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, optional automatic backup to your Google account, CSV export, a proper app icon and splash screen, and screenshots here. Delete and erase, monthly income, encryption, app lock and a privacy page. | Released |
+| **v1.1** | Saved balance carries forward month to month, clearer savings allocation, a year view of every month, custom category colours, a confirmation before deleting, and a "No more spending today" reminder button. | Released |
 
 If a version has bugs, a small fix release (for example v0.2.1) comes before the next one. Changes requested after trying a version are made before building on top of it, so the list can grow a little.
 

@@ -167,6 +167,8 @@ class _SwipeToDeleteTileState extends ConsumerState<SwipeToDeleteTile> {
     return Dismissible(
       key: ValueKey('entry-${widget.item.entry.id}'),
       direction: DismissDirection.endToStart,
+      // Swiping asks first, and the row springs back if the person says no.
+      confirmDismiss: (_) => confirmDeleteEntry(context, widget.item),
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
@@ -181,7 +183,11 @@ class _SwipeToDeleteTileState extends ConsumerState<SwipeToDeleteTile> {
         item: widget.item,
         onTap: () => showAddEntrySheet(context, editing: widget.item),
         onLongPress: widget.onStartSelecting,
-        onDelete: () => deleteEntryWithUndo(context, ref, widget.item),
+        onDelete: () async {
+          if (await confirmDeleteEntry(context, widget.item) && context.mounted) {
+            await deleteEntryWithUndo(context, ref, widget.item);
+          }
+        },
       ),
     );
   }

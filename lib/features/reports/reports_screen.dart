@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
 import '../../core/money.dart';
@@ -10,6 +11,7 @@ import '../../core/widgets/entry_tile.dart';
 import '../../data/logic/periods.dart';
 import '../../data/logic/reports.dart';
 import '../../data/providers.dart';
+import '../goals/funds_sheet.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -26,22 +28,39 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   int? _selectedBar;
 
   void _setType(PeriodType type) => setState(() {
-        _type = type;
-        _offset = 0;
-        _selectedBar = null;
-      });
+    _type = type;
+    _offset = 0;
+    _selectedBar = null;
+  });
 
   void _move(int delta) => setState(() {
-        _offset = (_offset + delta).clamp(-1200, 0);
-        _selectedBar = null;
-      });
+    _offset = (_offset + delta).clamp(-1200, 0);
+    _selectedBar = null;
+  });
+
+  void _openMonth(DateTime month) {
+    final today = ref.read(todayProvider);
+    setState(() {
+      _type = PeriodType.month;
+      _offset = ((month.year - today.year) * 12 + month.month - today.month).clamp(-1200, 0);
+      _selectedBar = null;
+    });
+  }
+
+  String _carryCaption(Report report) {
+    // Only saved money moves on to the next month; a shortfall does not.
+    if (report.funds.total < 0) return 'A shortfall does not carry forward';
+    if (report.period.type != PeriodType.month) return 'Saved balance carries forward';
+    final next = DateTime(report.period.end.year, report.period.end.month + 1);
+    return 'Carries into ${DateFormat(next.year == report.period.end.year ? 'MMMM' : 'MMMM y').format(next)}';
+  }
 
   static String _previousName(PeriodType t) => switch (t) {
-        PeriodType.day => 'yesterday',
-        PeriodType.week => 'the week before',
-        PeriodType.month => 'last month',
-        PeriodType.year => 'last year',
-      };
+    PeriodType.day => 'yesterday',
+    PeriodType.week => 'the week before',
+    PeriodType.month => 'last month',
+    PeriodType.year => 'last year',
+  };
 
   /// How this period compares with the one before it.
   String? _comparison(Report r, DateTime today) {
@@ -91,11 +110,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              IconButton(
-                tooltip: 'Previous',
-                onPressed: () => _move(-1),
-                icon: const Icon(Icons.chevron_left_rounded),
-              ),
+              IconButton(tooltip: 'Previous', onPressed: () => _move(-1), icon: const Icon(Icons.chevron_left_rounded)),
               Expanded(
                 child: TextButton(
                   onPressed: _offset == 0 ? null : () => _move(-_offset),
@@ -115,7 +130,21 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          _SummaryCard(report: report, comparison: comparison),
+          _SummaryCard(
+            report: report,
+            comparison: comparison,
+            caption: _carryCaption(report),
+            onSavedTap: () => showFundsSheet(
+              context,
+              title: report.funds.total < 0 ? 'Balance shortfall' : 'Saved balance',
+              caption: _carryCaption(report),
+              asOf: period.end.isBefore(today) ? period.end : today,
+            ),
+          ),
+          if (_type == PeriodType.year) ...[
+            const SectionTitle('Each month'),
+            _YearOverview(report: report, today: today, onMonth: _openMonth),
+          ],
           if (report.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 16),
@@ -131,8 +160,11 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
             if (report.period.type == PeriodType.day) ...[
               const SectionTitle('Entries'),
               for (final item in report.entries)
-                Padding(padding: const EdgeInsets.only(bottom: 8), child: SwipeToDeleteTile(item: item)),
-            ] else ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SwipeToDeleteTile(item: item),
+                ),
+            ] else if (_type != PeriodType.year) ...[
               SectionTitle(switch (report.period.type) {
                 PeriodType.week => 'Each day this week',
                 PeriodType.month => 'Each day this month',
@@ -169,10 +201,12 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.report, required this.comparison});
+  const _SummaryCard({required this.report, required this.comparison, required this.caption, required this.onSavedTap});
 
   final Report report;
   final String? comparison;
+  final String caption;
+  final VoidCallback onSavedTap;
 
   @override
   Widget build(BuildContext context) {
@@ -181,20 +215,27 @@ class _SummaryCard extends StatelessWidget {
     final soft = on.withValues(alpha: 0.82);
     const tabular = [FontFeature.tabularFigures()];
 
-    Widget stat(String label, String value) => Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(value, style: theme.textTheme.titleMedium?.copyWith(color: on, fontFeatures: tabular)),
+    Widget stat(String label, String value, {VoidCallback? onTap}) => Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(color: on, fontFeatures: tabular),
               ),
-            ],
-          ),
-        );
+            ),
+          ],
+        ),
+      ),
+    );
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -223,9 +264,109 @@ class _SummaryCard extends StatelessWidget {
             children: [
               stat('Income', formatTaka(report.income)),
               stat('Balance', formatTaka(report.balance)),
-              stat('Saved', formatTaka(report.saved)),
+              stat(
+                report.funds.total < 0 ? 'Shortfall' : 'Saved balance',
+                formatTaka(report.funds.total),
+                onTap: onSavedTap,
+              ),
             ],
           ),
+          const SizedBox(height: 10),
+          Text(caption, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
+        ],
+      ),
+    );
+  }
+}
+
+class _YearOverview extends StatelessWidget {
+  const _YearOverview({required this.report, required this.today, required this.onMonth});
+  final Report report;
+  final DateTime today;
+  final ValueChanged<DateTime> onMonth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context), colors = context.hisab;
+    final maximum = report.bars.fold<int>(1, (v, b) => b.amount > v ? b.amount : v);
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 8,
+              mainAxisExtent: 64,
+            ),
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final month = DateTime(report.period.start.year, index + 1);
+              final future = month.isAfter(today), recorded = report.recordedMonths.contains(index + 1);
+              final bar = report.bars[index];
+              final amount = future
+                  ? 'Upcoming'
+                  : recorded
+                  ? formatTaka(bar.amount)
+                  : '—';
+              return Semantics(
+                label:
+                    '${bar.fullLabel}: ${future
+                        ? 'upcoming'
+                        : recorded
+                        ? '${formatTaka(bar.amount)} spent'
+                        : 'no entries recorded'}',
+                button: !future,
+                child: InkWell(
+                  onTap: future ? null : () => onMonth(month),
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(bar.label, style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            amount,
+                            style: future
+                                ? theme.textTheme.bodySmall?.copyWith(color: colors.muted)
+                                : theme.textTheme.titleSmall,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: SizedBox(
+                            height: 3,
+                            width: double.infinity,
+                            child: ColoredBox(
+                              color: theme.colorScheme.outlineVariant,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: FractionallySizedBox(
+                                  widthFactor: bar.amount / maximum,
+                                  heightFactor: 1,
+                                  child: ColoredBox(color: theme.colorScheme.primary),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          Text('— No entries recorded', style: theme.textTheme.bodySmall?.copyWith(color: colors.muted)),
         ],
       ),
     );
@@ -254,7 +395,8 @@ class _CategoryBreakdown extends StatelessWidget {
     final restAmount = rest.fold<int>(0, (s, c) => s + c.amount);
 
     final rows = [
-      for (final c in shown) (name: c.category.name, color: Color(c.category.colorValue), amount: c.amount, share: c.share),
+      for (final c in shown)
+        (name: c.category.name, color: Color(c.category.colorValue), amount: c.amount, share: c.share),
       if (rest.isNotEmpty)
         (name: 'Others', color: Colors.blueGrey, amount: restAmount, share: restAmount / report.expense),
     ];

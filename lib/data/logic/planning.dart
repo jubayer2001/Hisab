@@ -1,6 +1,7 @@
 import '../../core/dates.dart';
 import '../db/app_database.dart';
 import '../db/tables.dart';
+import 'funds.dart';
 
 // ---- Recurring bills --------------------------------------------------------
 
@@ -36,12 +37,7 @@ DateTime nextRecurringDate(Recurring r, DateTime today) {
 // ---- Savings goals ----------------------------------------------------------
 
 class GoalProgress {
-  const GoalProgress({
-    required this.goal,
-    required this.saved,
-    required this.monthsLeft,
-    required this.monthlyNeeded,
-  });
+  const GoalProgress({required this.goal, required this.saved, required this.monthsLeft, required this.monthlyNeeded});
 
   final SavingsGoal goal;
   final int saved;
@@ -60,11 +56,13 @@ class GoalProgress {
   double get fraction => target <= 0 ? 0 : (saved / target).clamp(0.0, 1.0);
 }
 
-GoalProgress computeGoalProgress(SavingsGoal goal, List<GoalDeposit> deposits, DateTime today) {
-  var saved = 0;
-  for (final d in deposits) {
-    if (d.goalId == goal.id) saved += d.amountPoisha;
-  }
+GoalProgress computeGoalProgress(
+  SavingsGoal goal,
+  List<GoalDeposit> deposits,
+  DateTime today, {
+  Iterable<Entry> entries = const [],
+}) {
+  final saved = reservedForGoal(goalId: goal.id, entries: entries, deposits: deposits, asOf: today);
   final remaining = saved >= goal.targetPoisha ? 0 : goal.targetPoisha - saved;
 
   int? monthsLeft;

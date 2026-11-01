@@ -47,6 +47,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   int? _categoryId;
   late DateTime _date;
   String? _payment;
+  String? _saveError;
   final _noteController = TextEditingController();
 
   bool get _isEditing => widget.editing != null;
@@ -88,6 +89,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   void _onKey(String key) {
     HapticFeedback.selectionClick();
     setState(() {
+      _saveError = null;
       if (key == '.') {
         if (_amountText.contains('.')) return;
         _amountText = _amountText.isEmpty ? '0.' : '$_amountText.';
@@ -105,7 +107,10 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
 
   void _onBackspace() {
     if (_amountText.isEmpty) return;
-    setState(() => _amountText = _amountText.substring(0, _amountText.length - 1));
+    setState(() {
+      _saveError = null;
+      _amountText = _amountText.substring(0, _amountText.length - 1);
+    });
   }
 
   String get _displayAmount {
@@ -160,27 +165,32 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
         ? null
         : await budgetWarning(ref, type: _type, categoryId: categoryId, amountPoisha: amount);
 
-    final editing = widget.editing;
-    if (editing == null) {
-      await db.addEntry(
-        type: _type,
-        amountPoisha: amount,
-        categoryId: categoryId,
-        date: dayKey(_date),
-        paymentMethod: _isExpense ? _payment : null,
-        note: note.isEmpty ? null : note,
-      );
-    } else {
-      await db.updateEntry(
-        editing.entry.copyWith(
+    try {
+      final editing = widget.editing;
+      if (editing == null) {
+        await db.addEntry(
           type: _type,
           amountPoisha: amount,
           categoryId: categoryId,
           date: dayKey(_date),
-          paymentMethod: Value(_isExpense ? _payment : null),
-          note: Value(note.isEmpty ? null : note),
-        ),
-      );
+          paymentMethod: _isExpense ? _payment : null,
+          note: note.isEmpty ? null : note,
+        );
+      } else {
+        await db.updateEntry(
+          editing.entry.copyWith(
+            type: _type,
+            amountPoisha: amount,
+            categoryId: categoryId,
+            date: dayKey(_date),
+            paymentMethod: Value(_isExpense ? _payment : null),
+            note: Value(note.isEmpty ? null : note),
+          ),
+        );
+      }
+    } on SavingsException catch (e) {
+      if (mounted) setState(() => _saveError = e.message);
+      return;
     }
 
     if (!mounted) return;
@@ -200,6 +210,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   Future<void> _delete() async {
     final editing = widget.editing;
     if (editing == null) return;
+    if (!await confirmDeleteEntry(context, editing) || !mounted) return;
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final db = ref.read(databaseProvider);
@@ -228,7 +239,9 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     final editingCategory = widget.editing?.category;
     final shown = [
       ...categories,
-      if (editingCategory != null && editingCategory.type == _type && !categories.any((c) => c.id == editingCategory.id))
+      if (editingCategory != null &&
+          editingCategory.type == _type &&
+          !categories.any((c) => c.id == editingCategory.id))
         editingCategory,
     ];
     final accent = _isExpense ? colors.spending : colors.income;
@@ -249,10 +262,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            'Edit ${_isExpense ? 'expense' : 'income'}',
-                            style: theme.textTheme.titleLarge,
-                          ),
+                          child: Text('Edit ${_isExpense ? 'expense' : 'income'}', style: theme.textTheme.titleLarge),
                         ),
                         IconButton(
                           tooltip: 'Delete',
@@ -340,22 +350,24 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
               ),
             ),
           ),
+          if (_saveError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: Text(_saveError!, style: theme.textTheme.bodySmall?.copyWith(color: colors.spending)),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: SizedBox(
               width: double.infinity,
               child: FilledButton(
                 onPressed: _canSave ? _save : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: scheme.primary,
-                  foregroundColor: scheme.onPrimary,
-                ),
+                style: FilledButton.styleFrom(backgroundColor: scheme.primary, foregroundColor: scheme.onPrimary),
                 child: Text(
                   _amountPoisha == null
                       ? 'Enter an amount'
                       : _categoryId == null
-                          ? 'Pick a category'
-                          : (_isEditing ? 'Save changes' : 'Save ${formatTaka(_amountPoisha!)}'),
+                      ? 'Pick a category'
+                      : (_isEditing ? 'Save changes' : 'Save ${formatTaka(_amountPoisha!)}'),
                 ),
               ),
             ),
@@ -430,10 +442,7 @@ class _CategoryChoice extends StatelessWidget {
               Container(
                 width: 38,
                 height: 38,
-                decoration: BoxDecoration(
-                  color: Color(category.colorValue),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: Color(category.colorValue), borderRadius: BorderRadius.circular(12)),
                 child: Icon(iconForKey(category.iconKey), color: Colors.white, size: 21),
               ),
               const SizedBox(height: 3),

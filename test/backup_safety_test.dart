@@ -196,7 +196,7 @@ void main() {
 
       final restored = AppDatabase(NativeDatabase.memory());
       addTearDown(restored.close);
-      await restoreBackup(restored, parseBackup(encodeBackup(await createBackup(db)), currentSchemaVersion: 3));
+      await restoreBackup(restored, parseBackup(encodeBackup(await createBackup(db)), currentSchemaVersion: restored.schemaVersion));
 
       expect((await restored.watchEntries().first).map((e) => e.entry.note).toSet(), nasty.toSet());
       expect(await restored.watchCategories().first, hasLength(15), reason: 'no table was touched');

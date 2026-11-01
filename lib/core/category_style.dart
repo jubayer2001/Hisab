@@ -23,7 +23,15 @@ const Map<String, IconData> categoryIcons = {
   'laptop': Icons.laptop_mac_rounded,
   'savings': Icons.savings_rounded,
   'dots': Icons.more_horiz_rounded,
+  'donation': Icons.volunteer_activism_rounded,
+  'water': Icons.water_drop_rounded,
+  'pets': Icons.pets_rounded,
+  'fitness': Icons.fitness_center_rounded,
+  'subscriptions': Icons.subscriptions_rounded,
+  'family': Icons.family_restroom_rounded,
 };
+
+const extraCategoryIconKeys = {'donation', 'water', 'pets', 'fitness', 'subscriptions', 'family'};
 
 IconData iconForKey(String key) => categoryIcons[key] ?? Icons.category_rounded;
 

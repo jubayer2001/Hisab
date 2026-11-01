@@ -22,7 +22,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Stands in for the Android notification plugin and records what would be scheduled.
 class FakeNotificationService extends NotificationService {
-  final List<({bool enabled, int minutes, String? todayBody})> syncs = [];
+  final List<({bool enabled, int minutes, String? todayBody, bool spentToday})> syncs = [];
   final List<List<DharReminder>> dharSyncs = [];
   int testNotifications = 0;
 
@@ -52,8 +52,9 @@ class FakeNotificationService extends NotificationService {
     required bool enabled,
     required int minutes,
     required String? todayBody,
+    bool spentToday = false,
   }) async {
-    syncs.add((enabled: enabled, minutes: minutes, todayBody: todayBody));
+    syncs.add((enabled: enabled, minutes: minutes, todayBody: todayBody, spentToday: spentToday));
   }
 
   @override

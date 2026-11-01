@@ -15,6 +15,7 @@ import '../../core/widgets/sheet.dart';
 import '../../data/db/app_database.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
+import '../add_entry/entry_actions.dart';
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -73,7 +74,8 @@ class _GoalCard extends ConsumerWidget {
     final ok = await confirmDestructive(
       context,
       title: 'Delete this goal?',
-      message: '"${progress.goal.name}"$what will be deleted. '
+      message:
+          '"${progress.goal.name}"$what will be deleted. '
           'Money you saved is not counted as spending, so your balance does not change.',
     );
     if (ok) await ref.read(databaseProvider).deleteGoal(progress.goal.id);
@@ -87,8 +89,8 @@ class _GoalCard extends ConsumerWidget {
     final deadlineColor = progress.isDone
         ? colors.income
         : progress.isOverdue
-            ? colors.spending
-            : colors.muted;
+        ? colors.spending
+        : colors.muted;
 
     return AppCard(
       onTap: () => showGoalDetail(context, progress.goal.id),
@@ -101,7 +103,11 @@ class _GoalCard extends ConsumerWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
-                child: Icon(progress.isDone ? Icons.check_rounded : Icons.savings_rounded, color: Colors.white, size: 21),
+                child: Icon(
+                  progress.isDone ? Icons.check_rounded : Icons.savings_rounded,
+                  color: Colors.white,
+                  size: 21,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(child: Text(progress.goal.name, style: theme.textTheme.titleMedium)),
@@ -159,6 +165,13 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
         .take(6)
         .toList();
     final db = ref.read(databaseProvider);
+    final spending = (ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[])
+        .where(
+          (e) =>
+              e.entry.savingsGoalId == widget.goalId && e.entry.date.compareTo(dayKey(ref.watch(todayProvider))) <= 0,
+        )
+        .take(6)
+        .toList();
 
     return SheetScaffold(
       children: [
@@ -172,12 +185,12 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
         ),
         Text(
           formatTaka(progress.saved),
-          style: theme.textTheme.displaySmall?.copyWith(color: color, fontFeatures: const [FontFeature.tabularFigures()]),
+          style: theme.textTheme.displaySmall?.copyWith(
+            color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
-        Text(
-          'of ${formatTaka(progress.target)}',
-          style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted),
-        ),
+        Text('of ${formatTaka(progress.target)}', style: theme.textTheme.bodyMedium?.copyWith(color: colors.muted)),
         const SizedBox(height: 10),
         ProgressBar(fraction: progress.fraction, color: color, height: 10),
         const SizedBox(height: 8),
@@ -201,8 +214,37 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
             ),
           ],
         ),
-        if (deposits.isNotEmpty) ...[
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: progress.saved <= 0
+                ? null
+                : () => showAppSheet<void>(context, builder: (_) => _SpendGoalSheet(goalId: widget.goalId)),
+            child: const Text('Spend from this goal'),
+          ),
+        ),
+        if (deposits.isNotEmpty || spending.isNotEmpty) ...[
           const SectionTitle('Recent'),
+          for (final item in spending)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(
+                '−${formatTaka(item.entry.amountPoisha)}',
+                style: theme.textTheme.titleSmall?.copyWith(color: colors.spending),
+              ),
+              subtitle: Text('${friendlyDay(parseDayKey(item.entry.date))} · Spent from goal'),
+              trailing: IconButton(
+                tooltip: 'Delete expense',
+                icon: const Icon(Icons.close_rounded, size: 18),
+                onPressed: () async {
+                  if (!await confirmDeleteEntry(context, item) || !context.mounted) return;
+                  await deleteEntryWithUndo(context, ref, item);
+                  // Let the existing Undo snackbar remain reachable below the sheet.
+                  if (context.mounted) Navigator.pop(context);
+                },
+              ),
+            ),
           for (final d in deposits)
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -240,7 +282,10 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
   }
 
   Future<void> _showMoneySheet(BuildContext context, GoalProgress progress, {required bool withdraw}) {
-    return showAppSheet<void>(context, builder: (_) => _MoneySheet(progress: progress, withdraw: withdraw));
+    return showAppSheet<void>(
+      context,
+      builder: (_) => _MoneySheet(progress: progress, withdraw: withdraw),
+    );
   }
 }
 
@@ -256,6 +301,8 @@ class _MoneySheet extends ConsumerStatefulWidget {
 
 class _MoneySheetState extends ConsumerState<_MoneySheet> {
   final _amount = TextEditingController();
+  bool _saving = false;
+  String? _error;
 
   @override
   void initState() {
@@ -274,42 +321,158 @@ class _MoneySheetState extends ConsumerState<_MoneySheet> {
     final a = readAmount(_amount);
     if (a == null) return null;
     if (widget.withdraw && a > widget.progress.saved) return null;
+    if (!widget.withdraw && a > ref.read(fundsProvider).available) return null;
     return a;
   }
 
   Future<void> _save() async {
     final a = _valid;
-    if (a == null) return;
-    await ref.read(databaseProvider).addDeposit(
-          goalId: widget.progress.goal.id,
-          amountPoisha: widget.withdraw ? -a : a,
-          date: dayKey(ref.read(todayProvider)),
-        );
-    if (mounted) Navigator.of(context).pop();
+    if (a == null || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(databaseProvider)
+          .allocateGoal(
+            goalId: widget.progress.goal.id,
+            amountPoisha: widget.withdraw ? -a : a,
+            date: dayKey(ref.read(todayProvider)),
+          );
+      if (mounted) Navigator.of(context).pop();
+    } on SavingsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.message;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.hisab;
+    final available = ref.watch(fundsProvider).available;
     final over = widget.withdraw && (readAmount(_amount) ?? 0) > widget.progress.saved;
+    final overAvailable = !widget.withdraw && (readAmount(_amount) ?? 0) > available;
 
     return SheetScaffold(
       footer: FilledButton(
-        onPressed: _valid == null ? null : _save,
-        child: Text(_valid == null ? 'Enter an amount' : (widget.withdraw ? 'Take out ${formatTaka(_valid!)}' : 'Add ${formatTaka(_valid!)}')),
+        onPressed: _valid == null || _saving ? null : _save,
+        child: Text(
+          _valid == null
+              ? 'Enter an amount'
+              : (widget.withdraw ? 'Take out ${formatTaka(_valid!)}' : 'Add ${formatTaka(_valid!)}'),
+        ),
       ),
       children: [
         SheetHeader(widget.withdraw ? 'Take money out' : 'Add money to ${widget.progress.goal.name}'),
-        AmountField(controller: _amount, autofocus: true, onChanged: () => setState(() {})),
+        AmountField(controller: _amount, autofocus: true, onChanged: () => setState(() => _error = null)),
         const SizedBox(height: 8),
         Text(
-          over
-              ? 'You only have ${formatTaka(widget.progress.saved)} saved in this goal.'
-              : widget.withdraw
+          _error ??
+              (over
+                  ? 'You only have ${formatTaka(widget.progress.saved)} saved in this goal.'
+                  : overAvailable
+                  ? 'You have ${formatTaka(available)} available to set aside.'
+                  : widget.withdraw
                   ? 'You have ${formatTaka(widget.progress.saved)} saved here.'
-                  : 'This moves the money into the goal. It is saved, not spent.',
-          style: theme.textTheme.bodySmall?.copyWith(color: over ? colors.spending : colors.muted),
+                  : 'This moves the money into the goal. It is saved, not spent.'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: over || overAvailable || _error != null ? colors.spending : colors.muted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SpendGoalSheet extends ConsumerStatefulWidget {
+  const _SpendGoalSheet({required this.goalId});
+  final int goalId;
+  @override
+  ConsumerState<_SpendGoalSheet> createState() => _SpendGoalSheetState();
+}
+
+class _SpendGoalSheetState extends ConsumerState<_SpendGoalSheet> {
+  final _amount = TextEditingController();
+  int? _categoryId;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final categories = ref.read(pickableCategoriesProvider('expense'));
+    _categoryId = (categories.where((c) => c.name == 'Shopping').firstOrNull ?? categories.firstOrNull)?.id;
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = readAmount(_amount), category = _categoryId;
+    if (amount == null || category == null || _saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref
+          .read(databaseProvider)
+          .spendFromGoal(
+            goalId: widget.goalId,
+            amountPoisha: amount,
+            categoryId: category,
+            date: dayKey(ref.read(todayProvider)),
+          );
+      if (mounted) Navigator.pop(context);
+    } on SavingsException catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = e.message;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goal = ref.watch(goalProgressProvider).where((g) => g.goal.id == widget.goalId).firstOrNull;
+    final categories = ref.watch(pickableCategoriesProvider('expense'));
+    final funds = ref.watch(fundsProvider), amount = readAmount(_amount);
+    final selected = categories.any((c) => c.id == _categoryId) ? _categoryId : null;
+    final valid = goal != null && amount != null && amount <= goal.saved && amount <= funds.total && selected != null;
+    return SheetScaffold(
+      footer: FilledButton(
+        onPressed: !valid || _saving ? null : _save,
+        child: Text(amount == null ? 'Enter an amount' : 'Spend ${formatTaka(amount)}'),
+      ),
+      children: [
+        const SheetHeader('Spend from goal'),
+        if (goal != null)
+          Text('${goal.goal.name} · Saved ${formatTaka(goal.saved)}', style: TextStyle(color: context.hisab.muted)),
+        const SizedBox(height: 12),
+        AmountField(controller: _amount, autofocus: true, onChanged: () => setState(() => _error = null)),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: selected,
+          decoration: fieldDecoration(context, label: 'Expense category'),
+          items: [for (final c in categories) DropdownMenuItem(value: c.id, child: Text(c.name))],
+          onChanged: (id) => setState(() => _categoryId = id),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          _error ??
+              (amount != null && goal != null && amount > goal.saved
+                  ? 'This is more than the goal’s saved amount.'
+                  : amount != null && amount > funds.total
+                  ? 'Your balance no longer covers this amount.'
+                  : 'Recorded once as an expense, using this goal’s savings.'),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: _error != null || (amount != null && !valid) ? context.hisab.spending : context.hisab.muted,
+          ),
         ),
       ],
     );
@@ -376,12 +539,7 @@ class _GoalEditorState extends ConsumerState<_GoalEditor> {
     final deadline = _deadline == null ? null : dayKey(_deadline!);
     final existing = widget.existing;
     if (existing == null) {
-      await db.addGoal(
-        name: _name.text.trim(),
-        targetPoisha: target,
-        colorValue: _colorValue,
-        deadline: deadline,
-      );
+      await db.addGoal(name: _name.text.trim(), targetPoisha: target, colorValue: _colorValue, deadline: deadline);
     } else {
       await db.updateGoal(
         SavingsGoal(
@@ -454,7 +612,9 @@ class _GoalEditorState extends ConsumerState<_GoalEditor> {
                       width: 2.5,
                     ),
                   ),
-                  child: c.toARGB32() == _colorValue ? const Icon(Icons.check_rounded, color: Colors.white, size: 20) : null,
+                  child: c.toARGB32() == _colorValue
+                      ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                      : null,
                 ),
               ),
           ],

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../core/dates.dart';
 import '../db/app_database.dart';
 import 'periods.dart';
+import 'funds.dart';
 
 class CategoryTotal {
   const CategoryTotal({required this.category, required this.amount, required this.share});
@@ -37,6 +38,8 @@ class Report {
     required this.entries,
     required this.previousExpense,
     required this.averagePerDay,
+    this.funds = const Funds(),
+    this.recordedMonths = const {},
   });
 
   final Period period;
@@ -52,6 +55,8 @@ class Report {
   final List<EntryWithCategory> entries;
   final int previousExpense;
   final int averagePerDay;
+  final Funds funds;
+  final Set<int> recordedMonths;
 
   int get balance => income - expense;
 
@@ -68,11 +73,15 @@ Report buildReport({
   var expense = 0, income = 0;
   final byCategory = <int, int>{};
   final categoryOf = <int, Category>{};
+  final recordedMonths = <int>{};
+  final today = dateOnly(now);
+  final cutoff = period.end.isBefore(today) ? period.end : today;
 
   final barAmounts = _emptyBars(period);
 
   for (final e in all) {
-    if (!period.containsKey(e.entry.date)) continue;
+    if (!period.containsKey(e.entry.date) || e.entry.date.compareTo(dayKey(today)) > 0) continue;
+    recordedMonths.add(parseDayKey(e.entry.date).month);
     inPeriod.add(e);
     if (e.isExpense) {
       expense += e.entry.amountPoisha;
@@ -105,7 +114,6 @@ Report buildReport({
     if (period.containsKey(d.date)) saved += d.amountPoisha;
   }
 
-  final today = dateOnly(now);
   final lastCounted = today.isBefore(period.end) ? today : period.end;
   final elapsed = lastCounted.isBefore(period.start) ? 0 : lastCounted.difference(period.start).inDays + 1;
 
@@ -119,6 +127,8 @@ Report buildReport({
     entries: inPeriod,
     previousExpense: previousExpense,
     averagePerDay: elapsed == 0 ? 0 : expense ~/ elapsed,
+    funds: computeFunds(entries: all.map((e) => e.entry), deposits: deposits, asOf: cutoff),
+    recordedMonths: recordedMonths,
   );
 }
 
@@ -154,29 +164,25 @@ List<BarData> _buildBars(Period p, List<int> amounts) {
     for (var i = 0; i < amounts.length; i++)
       switch (p.type) {
         PeriodType.week => () {
-            final day = DateTime(p.start.year, p.start.month, p.start.day + i);
-            return BarData(
-              label: DateFormat('E').format(day),
-              fullLabel: DateFormat('EEE, d MMM').format(day),
-              amount: amounts[i],
-            );
-          }(),
+          final day = DateTime(p.start.year, p.start.month, p.start.day + i);
+          return BarData(
+            label: DateFormat('E').format(day),
+            fullLabel: DateFormat('EEE, d MMM').format(day),
+            amount: amounts[i],
+          );
+        }(),
         PeriodType.month => () {
-            final day = DateTime(p.start.year, p.start.month, i + 1);
-            return BarData(
-              label: '${i + 1}',
-              fullLabel: DateFormat('EEE, d MMM').format(day),
-              amount: amounts[i],
-            );
-          }(),
+          final day = DateTime(p.start.year, p.start.month, i + 1);
+          return BarData(label: '${i + 1}', fullLabel: DateFormat('EEE, d MMM').format(day), amount: amounts[i]);
+        }(),
         PeriodType.year => () {
-            final month = DateTime(p.start.year, i + 1, 1);
-            return BarData(
-              label: DateFormat('MMM').format(month),
-              fullLabel: DateFormat('MMMM y').format(month),
-              amount: amounts[i],
-            );
-          }(),
+          final month = DateTime(p.start.year, i + 1, 1);
+          return BarData(
+            label: DateFormat('MMM').format(month),
+            fullLabel: DateFormat('MMMM y').format(month),
+            amount: amounts[i],
+          );
+        }(),
         PeriodType.day => throw StateError('Day reports have no bars'),
       },
   ];

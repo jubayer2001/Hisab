@@ -70,9 +70,13 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     if (action == ReminderAction.noSpend) {
       await ref.read(databaseProvider).setNoSpend(dayKey(ref.read(todayProvider)), true);
       if (!mounted) return;
+      // After something was already spent today the day is "done", not "empty".
+      final spentToday = ref.read(todayEntriesProvider).any((e) => e.isExpense);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Marked as no spending today')));
+        ..showSnackBar(
+          SnackBar(content: Text(spentToday ? 'No more spending today' : 'Marked as no spending today')),
+        );
     } else {
       showAddEntrySheet(context);
     }

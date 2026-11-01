@@ -119,6 +119,9 @@ void main() {
     await h.settle(tester);
     await tester.tap(find.byTooltip('Delete'));
     await h.settle(tester);
+    expect(find.text('Delete this entry?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await h.settle(tester);
     expect(await h.entries(tester), isEmpty);
 
     await tester.tap(find.text('Undo'));

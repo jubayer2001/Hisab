@@ -36,10 +36,16 @@ void main() {
   Future<List<String>> noteList(WidgetTester tester) async =>
       (await h.entries(tester)).map((e) => e.entry.note ?? '').toList();
 
+  /// Answers the "Are you sure?" question that every spending deletion now asks.
+  Future<void> answerDelete(WidgetTester tester, {required bool confirm}) async {
+    await tester.tap(confirm ? find.widgetWithText(FilledButton, 'Delete') : find.text('Cancel'));
+    await h.settle(tester);
+  }
+
   ProviderContainer containerOf(WidgetTester tester) => ProviderScope.containerOf(tester.element(find.byType(Scaffold).first));
 
   group('a bin on every entry', () {
-    testWidgets('History: the bin deletes that entry and Undo brings it back', (tester) async {
+    testWidgets('History: the bin asks first, then deletes that entry, and Undo brings it back', (tester) async {
       await h.pumpApp(tester);
       await addNotes(tester, ['Lunch', 'Tea', 'Bus']);
       await openHistory(tester);
@@ -47,6 +53,10 @@ void main() {
       expect(find.byTooltip('Delete entry'), findsNWidgets(3));
       await tester.tap(find.descendant(of: find.widgetWithText(InkWell, 'Tea'), matching: find.byTooltip('Delete entry')));
       await h.settle(tester);
+      expect(find.text('Delete this entry?'), findsOneWidget);
+      expect(find.textContaining('৳50 · Food will be deleted'), findsOneWidget);
+      expect(await noteList(tester), contains('Tea'), reason: 'nothing is deleted until the question is answered');
+      await answerDelete(tester, confirm: true);
 
       expect(await noteList(tester), isNot(contains('Tea')));
       expect(find.byTooltip('Delete entry'), findsNWidgets(2));
@@ -58,22 +68,85 @@ void main() {
       await h.closeApp(tester);
     });
 
-    testWidgets('Home: today\'s list has bins too', (tester) async {
+    testWidgets('Home: today\'s list has bins too, and they ask first', (tester) async {
       await h.pumpApp(tester);
       await addNotes(tester, ['Lunch']);
 
       await tester.tap(find.byTooltip('Delete entry'));
       await h.settle(tester);
+      expect(find.text('Delete this entry?'), findsOneWidget);
+      await answerDelete(tester, confirm: true);
+      expect(await noteList(tester), isEmpty);
+      expect(find.text('Undo'), findsOneWidget, reason: 'Undo is still offered afterwards');
+      await h.closeApp(tester);
+    });
+
+    testWidgets('pressing Cancel keeps the entry, and no Undo message appears', (tester) async {
+      await h.pumpApp(tester);
+      await addNotes(tester, ['Lunch']);
+
+      await tester.tap(find.byTooltip('Delete entry'));
+      await h.settle(tester);
+      await answerDelete(tester, confirm: false);
+
+      expect(find.text('Delete this entry?'), findsNothing);
+      expect(await noteList(tester), ['Lunch']);
+      expect(find.text('Undo'), findsNothing);
+      expect(find.text('Lunch'), findsOneWidget);
+      await h.closeApp(tester);
+    });
+
+    testWidgets('income entries ask too, and name the amount', (tester) async {
+      await h.pumpApp(tester);
+      final gift = await h.category(tester, 'Gift', type: EntryType.income);
+      await h.addEntry(tester, amount: 250000, categoryId: gift.id, date: today(), type: EntryType.income, note: 'Eid gift');
+
+      await tester.tap(find.byTooltip('Delete entry'));
+      await h.settle(tester);
+      expect(find.textContaining('৳2,500 · Gift will be deleted'), findsOneWidget);
+      await answerDelete(tester, confirm: false);
+      expect(await noteList(tester), ['Eid gift']);
+      await h.closeApp(tester);
+    });
+
+    testWidgets('swiping asks first: Cancel brings the row back, Delete removes it', (tester) async {
+      await h.pumpApp(tester);
+      await addNotes(tester, ['Lunch']);
+
+      await tester.drag(find.text('Lunch'), const Offset(-500, 0));
+      await h.settle(tester);
+      expect(find.text('Delete this entry?'), findsOneWidget);
+      await answerDelete(tester, confirm: false);
+      expect(await noteList(tester), ['Lunch']);
+      expect(find.text('Lunch'), findsOneWidget, reason: 'the row springs back');
+
+      await tester.drag(find.text('Lunch'), const Offset(-500, 0));
+      await h.settle(tester);
+      await answerDelete(tester, confirm: true);
       expect(await noteList(tester), isEmpty);
       await h.closeApp(tester);
     });
 
-    testWidgets('swiping still deletes', (tester) async {
+    testWidgets('the Delete button inside the edit sheet asks first too', (tester) async {
       await h.pumpApp(tester);
       await addNotes(tester, ['Lunch']);
-      await tester.drag(find.text('Lunch'), const Offset(-500, 0));
+
+      await tester.tap(find.text('Lunch'));
       await h.settle(tester);
+      expect(find.text('Edit expense'), findsOneWidget);
+      await tester.tap(find.byTooltip('Delete'));
+      await h.settle(tester);
+      expect(find.text('Delete this entry?'), findsOneWidget);
+
+      await answerDelete(tester, confirm: false);
+      expect(await noteList(tester), ['Lunch']);
+      expect(find.text('Edit expense'), findsOneWidget, reason: 'the sheet stays open');
+
+      await tester.tap(find.byTooltip('Delete'));
+      await h.settle(tester);
+      await answerDelete(tester, confirm: true);
       expect(await noteList(tester), isEmpty);
+      expect(find.text('Edit expense'), findsNothing);
       await h.closeApp(tester);
     });
   });
@@ -100,8 +173,18 @@ void main() {
       await h.settle(tester);
       expect(find.text('Delete 2 entries'), findsOneWidget);
 
+      // The red button asks first. Cancelling keeps everything and keeps the ticks.
       await tester.tap(find.text('Delete 2 entries'));
       await h.settle(tester);
+      expect(find.text('Delete 2 entries?'), findsOneWidget);
+      expect(find.text('These 2 entries will be deleted. You can undo it right after.'), findsOneWidget);
+      await answerDelete(tester, confirm: false);
+      expect((await noteList(tester)).length, 4);
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(find.text('Delete 2 entries'));
+      await h.settle(tester);
+      await answerDelete(tester, confirm: true);
       expect((await noteList(tester)).toSet(), {'Bus', 'Bazar'});
       expect(find.text('Deleted 2 entries'), findsOneWidget);
       expect(find.textContaining('selected'), findsNothing);

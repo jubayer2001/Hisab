@@ -210,6 +210,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                           for (final e in filtered)
                             if (_selected.contains(e.entry.id)) e,
                         ];
+                        if (!await confirmDeleteEntries(context, doomed.length) || !context.mounted) return;
                         setState(_selected.clear);
                         await deleteEntriesWithUndo(context, ref, doomed);
                       },

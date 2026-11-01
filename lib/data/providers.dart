@@ -7,6 +7,7 @@ import 'db/app_database.dart';
 import 'db/tables.dart';
 import 'logic/auto_income.dart';
 import 'logic/budgets.dart';
+import 'logic/funds.dart';
 import 'logic/planning.dart';
 import 'summary.dart';
 
@@ -44,13 +45,9 @@ class TodayNotifier extends Notifier<DateTime> {
 
 final todayProvider = NotifierProvider<TodayNotifier, DateTime>(TodayNotifier.new);
 
-final allEntriesProvider = StreamProvider<List<EntryWithCategory>>(
-  (ref) => ref.watch(databaseProvider).watchEntries(),
-);
+final allEntriesProvider = StreamProvider<List<EntryWithCategory>>((ref) => ref.watch(databaseProvider).watchEntries());
 
-final categoriesProvider = StreamProvider<List<Category>>(
-  (ref) => ref.watch(databaseProvider).watchCategories(),
-);
+final categoriesProvider = StreamProvider<List<Category>>((ref) => ref.watch(databaseProvider).watchCategories());
 
 /// Categories you can pick from for a given type (hides archived ones).
 final pickableCategoriesProvider = Provider.family<List<Category>, String>((ref, type) {
@@ -58,9 +55,7 @@ final pickableCategoriesProvider = Provider.family<List<Category>, String>((ref,
   return all.where((c) => c.type == type && !c.isArchived).toList();
 });
 
-final noSpendDaysProvider = StreamProvider<Set<String>>(
-  (ref) => ref.watch(databaseProvider).watchNoSpendDays(),
-);
+final noSpendDaysProvider = StreamProvider<Set<String>>((ref) => ref.watch(databaseProvider).watchNoSpendDays());
 
 final summaryProvider = Provider<Summary>((ref) {
   final entries = ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[];
@@ -82,18 +77,25 @@ final quickAddsProvider = Provider<List<QuickAdd>>((ref) {
 
 final budgetsProvider = StreamProvider<List<Budget>>((ref) => ref.watch(databaseProvider).watchBudgets());
 
-final recurringsProvider =
-    StreamProvider<List<Recurring>>((ref) => ref.watch(databaseProvider).watchRecurrings());
+final recurringsProvider = StreamProvider<List<Recurring>>((ref) => ref.watch(databaseProvider).watchRecurrings());
 
 final goalsProvider = StreamProvider<List<SavingsGoal>>((ref) => ref.watch(databaseProvider).watchGoals());
 
-final depositsProvider =
-    StreamProvider<List<GoalDeposit>>((ref) => ref.watch(databaseProvider).watchDeposits());
+final depositsProvider = StreamProvider<List<GoalDeposit>>((ref) => ref.watch(databaseProvider).watchDeposits());
+
+final fundsProvider = Provider<Funds>(
+  (ref) => computeFunds(
+    entries: (ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[]).map((e) => e.entry),
+    deposits: ref.watch(depositsProvider).value ?? const [],
+    asOf: ref.watch(todayProvider),
+  ),
+);
 
 final dharRecordsProvider = StreamProvider<List<DharRecord>>((ref) => ref.watch(databaseProvider).watchDhar());
 
-final dharPaymentsProvider =
-    StreamProvider<List<DharPayment>>((ref) => ref.watch(databaseProvider).watchDharPayments());
+final dharPaymentsProvider = StreamProvider<List<DharPayment>>(
+  (ref) => ref.watch(databaseProvider).watchDharPayments(),
+);
 
 /// How each budget stands this month (the overall one first).
 final budgetStatusesProvider = Provider<List<BudgetStatus>>((ref) {
@@ -118,8 +120,10 @@ final dueRecurringsProvider = Provider<List<Recurring>>((ref) {
 final goalProgressProvider = Provider<List<GoalProgress>>((ref) {
   final deposits = ref.watch(depositsProvider).value ?? const <GoalDeposit>[];
   final today = ref.watch(todayProvider);
+  final entries = (ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[]).map((e) => e.entry);
   return [
-    for (final g in ref.watch(goalsProvider).value ?? const <SavingsGoal>[]) computeGoalProgress(g, deposits, today),
+    for (final g in ref.watch(goalsProvider).value ?? const <SavingsGoal>[])
+      computeGoalProgress(g, deposits, today, entries: entries),
   ];
 });
 

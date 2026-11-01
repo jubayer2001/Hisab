@@ -86,6 +86,11 @@ final reminderSyncProvider = Provider<void>((ref) {
   }
 
   unawaited(
-    service.syncReminders(enabled: settings.enabled, minutes: settings.minutes, todayBody: todayBody),
+    service.syncReminders(
+      enabled: settings.enabled,
+      minutes: settings.minutes,
+      todayBody: todayBody,
+      spentToday: todayExpenses > 0,
+    ),
   );
 });

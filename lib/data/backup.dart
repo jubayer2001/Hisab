@@ -52,8 +52,9 @@ class BackupContents {
 
 /// Everything in the database, plus [settings], as a map ready to be saved as JSON.
 Future<Map<String, dynamic>> createBackup(AppDatabase db, {Map<String, Object?> settings = const {}}) async {
-  Future<List<Map<String, dynamic>>> rows<T extends DataClass>(Future<List<T>> query) async =>
-      [for (final r in await query) r.toJson()];
+  Future<List<Map<String, dynamic>>> rows<T extends DataClass>(Future<List<T>> query) async => [
+    for (final r in await query) r.toJson(),
+  ];
 
   return {
     'format': _formatName,
@@ -126,11 +127,14 @@ final _monthPattern = RegExp(r'^(\d{4})-(\d{2})$');
 
 bool _isInt(Object? v) => v is int;
 bool _isBool(Object? v) => v is bool;
-_Rule _intIn(int low, int high) => (v) => v is int && v >= low && v <= high;
+_Rule _intIn(int low, int high) =>
+    (v) => v is int && v >= low && v <= high;
 _Rule _text(int max, {bool allowEmpty = true}) =>
     (v) => v is String && v.length <= max && (allowEmpty || v.isNotEmpty);
-_Rule _oneOf(Set<String> values) => (v) => v is String && values.contains(v);
-_Rule _optional(_Rule rule) => (v) => v == null || rule(v);
+_Rule _oneOf(Set<String> values) =>
+    (v) => v is String && values.contains(v);
+_Rule _optional(_Rule rule) =>
+    (v) => v == null || rule(v);
 
 bool _isDay(Object? v) {
   if (v is! String) return false;
@@ -179,6 +183,7 @@ final Map<String, Map<String, _Rule>> _tableRules = {
     'date': _isDay,
     'createdAt': _isInt,
     'recurringId': _optional(_isInt),
+    'savingsGoalId': _optional(_isInt),
   },
   'dayStatuses': {'date': _isDay, 'noSpend': _isBool},
   'budgets': {'id': _isInt, 'categoryId': _optional(_isInt), 'amountPoisha': _money},
@@ -223,6 +228,7 @@ void _validateRows(Map<String, dynamic> data) {
     if (rows is! List || rows.length > maxBackupRows) throw damaged;
     for (final row in rows) {
       if (row is! Map) throw damaged;
+      if (entry.key == 'entries' && row['savingsGoalId'] != null && row['type'] != 'expense') throw damaged;
       for (final column in entry.value.entries) {
         if (!column.value(row[column.key])) throw damaged;
       }
@@ -232,7 +238,6 @@ void _validateRows(Map<String, dynamic> data) {
   final settings = data['settings'];
   if (settings != null && settings is! Map) throw damaged;
 }
-
 
 /// Replaces everything in the database with the contents of [backup].
 ///
@@ -254,11 +259,11 @@ Future<void> restoreBackup(AppDatabase db, BackupContents backup) async {
       // Parents before children.
       await db.batch((b) {
         b.insertAll(db.categories, [for (final j in backup._table('categories')) Category.fromJson(j)]);
+        b.insertAll(db.savingsGoals, [for (final j in backup._table('savingsGoals')) SavingsGoal.fromJson(j)]);
         b.insertAll(db.entries, [for (final j in backup._table('entries')) Entry.fromJson(j)]);
         b.insertAll(db.dayStatuses, [for (final j in backup._table('dayStatuses')) DayStatuse.fromJson(j)]);
         b.insertAll(db.budgets, [for (final j in backup._table('budgets')) Budget.fromJson(j)]);
         b.insertAll(db.recurrings, [for (final j in backup._table('recurrings')) Recurring.fromJson(j)]);
-        b.insertAll(db.savingsGoals, [for (final j in backup._table('savingsGoals')) SavingsGoal.fromJson(j)]);
         b.insertAll(db.goalDeposits, [for (final j in backup._table('goalDeposits')) GoalDeposit.fromJson(j)]);
         b.insertAll(db.dharRecords, [for (final j in backup._table('dharRecords')) DharRecord.fromJson(j)]);
         b.insertAll(db.dharPayments, [for (final j in backup._table('dharPayments')) DharPayment.fromJson(j)]);

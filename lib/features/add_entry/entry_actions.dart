@@ -3,12 +3,36 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/dates.dart';
 import '../../core/money.dart';
+import '../../core/widgets/confirm_dialog.dart';
 import '../../data/db/app_database.dart';
 import '../../data/logic/budgets.dart';
 import '../../data/providers.dart';
 import '../../data/summary.dart';
 
-/// Deletes an entry and offers "Undo" for a few seconds instead of a confirm dialog.
+/// Asks "Delete this entry?" before a single expense or income is deleted. True only if the
+/// person pressed the red Delete button. Undo is still offered afterwards.
+Future<bool> confirmDeleteEntry(BuildContext context, EntryWithCategory item) {
+  return confirmDestructive(
+    context,
+    title: 'Delete this entry?',
+    message: '${formatTaka(item.entry.amountPoisha)} · ${item.category.name} will be deleted. '
+        'You can undo it right after.',
+  );
+}
+
+/// The same question for several entries at once.
+Future<bool> confirmDeleteEntries(BuildContext context, int count) {
+  return confirmDestructive(
+    context,
+    title: count == 1 ? 'Delete 1 entry?' : 'Delete $count entries?',
+    message: count == 1
+        ? 'This entry will be deleted. You can undo it right after.'
+        : 'These $count entries will be deleted. You can undo it right after.',
+  );
+}
+
+/// Deletes an entry and offers "Undo" for a few seconds. Callers ask first with
+/// [confirmDeleteEntry].
 Future<void> deleteEntryWithUndo(BuildContext context, WidgetRef ref, EntryWithCategory item) async {
   final db = ref.read(databaseProvider);
   final messenger = ScaffoldMessenger.of(context);

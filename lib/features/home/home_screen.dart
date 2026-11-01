@@ -19,6 +19,7 @@ import '../../data/providers.dart';
 import '../../data/summary.dart';
 import '../add_entry/entry_actions.dart';
 import '../income/income_widgets.dart';
+import '../goals/funds_sheet.dart';
 import '../recurring/due_bills.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -64,10 +65,7 @@ class HomeScreen extends ConsumerWidget {
                     style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
                   ),
                 ),
-                if (streak > 0) ...[
-                  _StreakChip(days: streak),
-                  const SizedBox(width: 10),
-                ],
+                if (streak > 0) ...[_StreakChip(days: streak), const SizedBox(width: 10)],
                 const ProfileAvatar(),
               ],
             ),
@@ -78,12 +76,14 @@ class HomeScreen extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 16),
-            if (ref.watch(showCloudNudgeProvider)) ...[
-              const BackupNudge(),
-              const SizedBox(height: 12),
-            ],
+            if (ref.watch(showCloudNudgeProvider)) ...[const BackupNudge(), const SizedBox(height: 12)],
             const IncomeNotes(),
-            _SummaryCard(summary: summary, budget: overall, onIncomeTap: () => showIncomeBreakdown(context)),
+            _SummaryCard(
+              summary: summary,
+              budget: overall,
+              onIncomeTap: () => showIncomeBreakdown(context),
+              onBalanceTap: () => showFundsSheet(context, title: 'Balance'),
+            ),
             for (final alert in alerts.take(2))
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -132,7 +132,11 @@ class HomeScreen extends ConsumerWidget {
             ],
             if (!handled || markedNoSpend) ...[
               const SizedBox(height: 16),
-              _NoSpendCard(marked: markedNoSpend, date: dayKey(today)),
+              _NoSpendCard(
+                marked: markedNoSpend,
+                date: dayKey(today),
+                spentToday: todayEntries.any((e) => e.isExpense),
+              ),
             ],
             const SizedBox(height: 24),
             Row(
@@ -192,13 +196,19 @@ class _StreakChip extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.summary, required this.budget, required this.onIncomeTap});
+  const _SummaryCard({
+    required this.summary,
+    required this.budget,
+    required this.onIncomeTap,
+    required this.onBalanceTap,
+  });
 
   final Summary summary;
   final BudgetStatus? budget;
 
   /// Tapping the Income figure shows where it came from.
   final VoidCallback onIncomeTap;
+  final VoidCallback onBalanceTap;
 
   @override
   Widget build(BuildContext context) {
@@ -208,26 +218,26 @@ class _SummaryCard extends StatelessWidget {
     const tabular = [FontFeature.tabularFigures()];
 
     Widget stat(String label, String value, {VoidCallback? onTap}) => Expanded(
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(8),
-            child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
-              const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  value,
-                  style: theme.textTheme.titleMedium?.copyWith(color: on, fontFeatures: tabular),
-                ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: theme.textTheme.titleMedium?.copyWith(color: on, fontFeatures: tabular),
               ),
-            ],
-          ),
-          ),
-        );
+            ),
+          ],
+        ),
+      ),
+    );
 
     final b = budget;
     // On the teal card the usual red would be hard to read, so "over" uses a soft coral.
@@ -241,10 +251,7 @@ class _SummaryCard extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary,
-        borderRadius: BorderRadius.circular(22),
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(22)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -272,7 +279,7 @@ class _SummaryCard extends StatelessWidget {
             children: [
               stat('Spent this month', formatTaka(summary.monthExpense)),
               stat('Income', formatTaka(summary.monthIncome), onTap: onIncomeTap),
-              stat('Balance', formatTaka(summary.monthBalance)),
+              stat('Balance', formatTaka(summary.balance), onTap: onBalanceTap),
             ],
           ),
           if (b != null) ...[
@@ -333,10 +340,13 @@ class _BudgetAlert extends StatelessWidget {
 }
 
 class _NoSpendCard extends ConsumerWidget {
-  const _NoSpendCard({required this.marked, required this.date});
+  const _NoSpendCard({required this.marked, required this.date, required this.spentToday});
 
   final bool marked;
   final String date;
+
+  /// Something was already spent today, so a marked day means "no more spending", not "none".
+  final bool spentToday;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -355,14 +365,11 @@ class _NoSpendCard extends ConsumerWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              marked ? 'Marked as no spending today' : 'Nothing spent today?',
+              marked ? (spentToday ? 'No more spending today' : 'Marked as no spending today') : 'Nothing spent today?',
               style: theme.textTheme.bodyMedium,
             ),
           ),
-          TextButton(
-            onPressed: () => db.setNoSpend(date, !marked),
-            child: Text(marked ? 'Undo' : 'No spending'),
-          ),
+          TextButton(onPressed: () => db.setNoSpend(date, !marked), child: Text(marked ? 'Undo' : 'No spending')),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import '../core/dates.dart';
 import 'db/app_database.dart';
+import 'logic/funds.dart';
 
 /// Totals shown on the Home card. All amounts are in poisha.
 class Summary {
@@ -9,6 +10,7 @@ class Summary {
     this.todayCount = 0,
     this.monthExpense = 0,
     this.monthIncome = 0,
+    this.balance = 0,
   });
 
   final int todayExpense;
@@ -16,6 +18,10 @@ class Summary {
   final int todayCount;
   final int monthExpense;
   final int monthIncome;
+
+  /// Money saved from earlier months (never negative) plus this month's income minus spending.
+  /// A month that ends in a shortfall passes on 0, see `carriedBalance`.
+  final int balance;
 
   /// Income minus spending for the month. Negative when you spent more than you earned.
   int get monthBalance => monthIncome - monthExpense;
@@ -28,6 +34,7 @@ Summary computeSummary(List<EntryWithCategory> all, DateTime now) {
 
   for (final e in all) {
     final entry = e.entry;
+    if (entry.date.compareTo(today) > 0) continue;
     final inMonth = entry.date.startsWith(month);
     if (entry.date == today) {
       todayCount++;
@@ -51,6 +58,7 @@ Summary computeSummary(List<EntryWithCategory> all, DateTime now) {
     todayCount: todayCount,
     monthExpense: monthExpense,
     monthIncome: monthIncome,
+    balance: carriedBalance([for (final e in all) e.entry], now),
   );
 }
 

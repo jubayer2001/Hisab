@@ -228,6 +228,8 @@ void main() {
 
   testWidgets('Goals: create a goal, add money, take some out', (tester) async {
     await h.pumpApp(tester);
+    final salary = await h.category(tester, 'Salary', type: EntryType.income);
+    await h.addEntry(tester, type: EntryType.income, amount: 5000000, categoryId: salary.id, date: today());
     await h.openFromMore(tester, 'Savings goals');
     expect(find.text('No savings goals yet'), findsOneWidget);
 
@@ -256,7 +258,7 @@ void main() {
     expect(find.text('−৳500'), findsOneWidget);
 
     // Saved money is never spending.
-    expect(await h.entries(tester), isEmpty);
+    expect((await h.entries(tester)).single.entry.type, EntryType.income);
 
     await h.closeApp(tester);
   });

@@ -66,7 +66,14 @@ class NotificationService {
 
   // ---- Notifications -------------------------------------------------------
 
-  NotificationDetails get _details => const NotificationDetails(
+  /// The two buttons on a reminder: add an expense, or say the day is done. Once something was
+  /// already spent today the second button reads "No more spending today", because "No spending
+  /// today" would be untrue.
+  static String noSpendLabel({required bool spentToday}) =>
+      spentToday ? 'No more spending today' : 'No spending today';
+
+  @visibleForTesting
+  NotificationDetails detailsFor({required bool spentToday}) => NotificationDetails(
         android: AndroidNotificationDetails(
           _channelId,
           _channelName,
@@ -75,7 +82,7 @@ class NotificationService {
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,
           actions: [
-            AndroidNotificationAction(
+            const AndroidNotificationAction(
               ReminderAction.add,
               'Add expense',
               showsUserInterface: true,
@@ -83,7 +90,7 @@ class NotificationService {
             ),
             AndroidNotificationAction(
               ReminderAction.noSpend,
-              'No spending today',
+              noSpendLabel(spentToday: spentToday),
               showsUserInterface: true,
               cancelNotification: true,
             ),
@@ -100,7 +107,7 @@ class NotificationService {
       id: _testId,
       title: title,
       body: 'This is a test reminder. Your real one arrives at the time you chose.',
-      notificationDetails: _details,
+      notificationDetails: detailsFor(spentToday: false),
     );
   }
 
@@ -148,10 +155,13 @@ class NotificationService {
   /// Replaces every pending reminder with the next [_days] evenings.
   ///
   /// [todayBody] is tonight's message, or null to skip tonight (day already settled).
+  /// [spentToday] says something was already logged today, which changes tonight's second
+  /// button to "No more spending today".
   Future<void> syncReminders({
     required bool enabled,
     required int minutes,
     required String? todayBody,
+    bool spentToday = false,
   }) async {
     for (var i = 0; i < _days; i++) {
       await _plugin.cancel(id: _firstId + i);
@@ -172,7 +182,7 @@ class NotificationService {
         title: title,
         body: i == 0 ? todayBody : genericBody,
         scheduledDate: when,
-        notificationDetails: _details,
+        notificationDetails: detailsFor(spentToday: i == 0 && spentToday),
         androidScheduleMode: mode,
       );
     }

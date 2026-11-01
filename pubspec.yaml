@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # The release workflow overrides the name (from the git tag) but NOT the +N build number.
 # Raise +N with every build installed on a phone: Android refuses to go to a lower number.
-version: 1.0.0+10
+version: 1.1.0+12
 
 environment:
   sdk: ^3.13.5
