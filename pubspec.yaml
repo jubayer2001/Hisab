@@ -33,7 +33,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  drift_dev: ^2.35.1
+  drift_dev: ^2.35.2
   build_runner: ^2.16.2
 
 # The database is encrypted on disk. This picks the build of SQLite that supports it
