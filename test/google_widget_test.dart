@@ -172,6 +172,7 @@ void main() {
     await h.settle(tester);
 
     // Straight into the app, with the saved name.
+    await h.skipTour(tester);
     expect(find.text('Spent today'), findsOneWidget);
     expect(find.textContaining(', From Google'), findsOneWidget);
     expect((await h.entries(tester)).single.entry.note, 'Old entry');

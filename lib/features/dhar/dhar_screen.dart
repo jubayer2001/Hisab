@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -15,6 +15,9 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
+import '../../l10n/text.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 
 class DharScreen extends ConsumerStatefulWidget {
   const DharScreen({super.key});
@@ -65,7 +68,7 @@ class _DharScreenState extends ConsumerState<DharScreen> {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dhar')),
+      appBar: AppBar(title: const Text('Dhar'), actions: const [HelpButton(TutorialId.dhar)]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showDharEditor(context, initialDirection: _direction),
         icon: const Icon(Icons.add_rounded),
@@ -205,7 +208,7 @@ class _DharCard extends ConsumerWidget {
                   ],
                 ),
                 IconButton(
-                  tooltip: 'Delete this entry',
+                  tooltip: tr('Delete this entry'),
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _delete(context, ref),
                   icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
@@ -267,7 +270,7 @@ class _DharDetailState extends ConsumerState<_DharDetail> {
         SheetHeader(
           r.person,
           trailing: IconButton(
-            tooltip: 'Edit',
+            tooltip: tr('Edit'),
             onPressed: () => showDharEditor(context, existing: r),
             icon: const Icon(Icons.edit_outlined),
           ),
@@ -336,7 +339,7 @@ class _DharDetailState extends ConsumerState<_DharDetail> {
               title: Text(formatTaka(p.amountPoisha), style: theme.textTheme.titleSmall),
               subtitle: Text(friendlyDay(parseDayKey(p.date))),
               trailing: IconButton(
-                tooltip: 'Delete payment',
+                tooltip: tr('Delete payment'),
                 icon: const Icon(Icons.close_rounded, size: 18),
                 onPressed: () async {
                   await db.deleteDharPayment(p.id);
@@ -586,7 +589,7 @@ class _DharEditorState extends ConsumerState<_DharEditor> {
             ),
             if (_due != null)
               IconButton(
-                tooltip: 'Remove due date',
+                tooltip: tr('Remove due date'),
                 onPressed: () => setState(() => _due = null),
                 icon: const Icon(Icons.close_rounded),
               ),

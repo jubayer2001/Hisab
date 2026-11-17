@@ -1,17 +1,24 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../app/theme.dart';
+import '../../core/category_style.dart';
 import '../../core/money.dart';
 import '../../core/widgets/app_card.dart';
 import '../../core/widgets/charts.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entry_tile.dart';
+import '../../core/widgets/period_picker.dart';
+import '../../core/widgets/summary_stats.dart';
 import '../../data/logic/periods.dart';
 import '../../data/logic/reports.dart';
 import '../../data/providers.dart';
 import '../goals/funds_sheet.dart';
+import 'category_spending_sheet.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
+import '../../l10n/text.dart';
 
 class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({super.key});
@@ -37,6 +44,17 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     _offset = (_offset + delta).clamp(-1200, 0);
     _selectedBar = null;
   });
+
+  /// Opens the calendar to jump to any day, week, month or year.
+  Future<void> _pickPeriod() async {
+    final choice = await showPeriodPicker(context, type: _type, offset: _offset);
+    if (choice == null || !mounted) return;
+    setState(() {
+      _type = choice.type;
+      _offset = choice.offset.clamp(-1200, 0);
+      _selectedBar = null;
+    });
+  }
 
   void _openMonth(DateTime month) {
     final today = ref.read(todayProvider);
@@ -89,7 +107,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
     final comparison = _comparison(report, today);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reports')),
+      appBar: AppBar(title: const Text('Reports'), actions: const [HelpButton(TutorialId.reports)]),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
         children: [
@@ -110,20 +128,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              IconButton(tooltip: 'Previous', onPressed: () => _move(-1), icon: const Icon(Icons.chevron_left_rounded)),
+              IconButton(tooltip: tr('Previous'), onPressed: () => _move(-1), icon: const Icon(Icons.chevron_left_rounded)),
               Expanded(
-                child: TextButton(
-                  onPressed: _offset == 0 ? null : () => _move(-_offset),
-                  child: Text(
-                    periodLabel(period, now: today),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: _offset == 0 ? scheme.onSurface : scheme.primary,
-                    ),
-                  ),
+                child: Center(
+                  child: PeriodPickButton(label: periodLabel(period, now: today), onTap: _pickPeriod),
                 ),
               ),
               IconButton(
-                tooltip: 'Next',
+                tooltip: tr('Next'),
                 onPressed: _offset == 0 ? null : () => _move(1),
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
@@ -157,6 +169,14 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
           else ...[
             const SectionTitle('Where it went'),
             AppCard(child: _CategoryBreakdown(report: report)),
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Tap the chart or a category to see everything spent on it',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+              ),
+            ),
             if (report.period.type == PeriodType.day) ...[
               const SectionTitle('Entries'),
               for (final item in report.entries)
@@ -215,28 +235,6 @@ class _SummaryCard extends StatelessWidget {
     final soft = on.withValues(alpha: 0.82);
     const tabular = [FontFeature.tabularFigures()];
 
-    Widget stat(String label, String value, {VoidCallback? onTap}) => Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: theme.textTheme.bodySmall?.copyWith(color: soft)),
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: theme.textTheme.titleMedium?.copyWith(color: on, fontFeatures: tabular),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: theme.colorScheme.primary, borderRadius: BorderRadius.circular(22)),
@@ -260,11 +258,11 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 16),
           Divider(color: on.withValues(alpha: 0.25), height: 1),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              stat('Income', formatTaka(report.income)),
-              stat('Balance', formatTaka(report.balance)),
-              stat(
+          SummaryStats(
+            stats: [
+              SummaryStat('Income', formatTaka(report.income)),
+              SummaryStat('Balance', formatTaka(report.balance)),
+              SummaryStat(
                 report.funds.total < 0 ? 'Shortfall' : 'Saved balance',
                 formatTaka(report.funds.total),
                 onTap: onSavedTap,
@@ -396,15 +394,39 @@ class _CategoryBreakdown extends StatelessWidget {
 
     final rows = [
       for (final c in shown)
-        (name: c.category.name, color: Color(c.category.colorValue), amount: c.amount, share: c.share),
+        (
+          name: c.category.name,
+          color: Color(c.category.colorValue),
+          icon: iconForKey(c.category.iconKey),
+          ids: {c.category.id},
+          amount: c.amount,
+          share: c.share,
+        ),
       if (rest.isNotEmpty)
-        (name: 'Others', color: Colors.blueGrey, amount: restAmount, share: restAmount / report.expense),
+        (
+          name: 'Others',
+          color: Colors.blueGrey,
+          icon: Icons.more_horiz_rounded,
+          ids: {for (final c in rest) c.category.id},
+          amount: restAmount,
+          share: restAmount / report.expense,
+        ),
     ];
+
+    void open(int index) => showCategorySpendingSheet(
+      context,
+      name: rows[index].name,
+      color: rows[index].color,
+      icon: rows[index].icon,
+      categoryIds: rows[index].ids,
+      period: report.period,
+    );
 
     return Column(
       children: [
         DonutChart(
           slices: [for (final r in rows) DonutSlice(value: r.amount.toDouble(), color: r.color)],
+          onSliceTap: open,
           trackColor: theme.colorScheme.outlineVariant,
           center: Column(
             mainAxisSize: MainAxisSize.min,
@@ -415,31 +437,41 @@ class _CategoryBreakdown extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        for (final r in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(color: r.color, borderRadius: BorderRadius.circular(4)),
+        for (var i = 0; i < rows.length; i++)
+          Semantics(
+            button: true,
+            label: '${rows[i].name}: ${formatTaka(rows[i].amount)}. Show all ${rows[i].name} spending',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () => open(i),
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 40),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(color: rows[i].color, borderRadius: BorderRadius.circular(4)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(rows[i].name, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    Text(
+                      formatTaka(rows[i].amount),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                    ),
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        '${(rows[i].share * 100).round()}%',
+                        textAlign: TextAlign.right,
+                        style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, size: 18, color: colors.muted),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
-                Text(
-                  formatTaka(r.amount),
-                  style: theme.textTheme.bodyMedium?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                ),
-                SizedBox(
-                  width: 48,
-                  child: Text(
-                    '${(r.share * 100).round()}%',
-                    textAlign: TextAlign.right,
-                    style: theme.textTheme.bodySmall?.copyWith(color: colors.muted),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
       ],

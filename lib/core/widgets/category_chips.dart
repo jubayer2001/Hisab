@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../data/db/app_database.dart';
 import '../category_style.dart';
+import '../../l10n/text.dart';
 
 /// Pick one category from a list, shown as wrapped chips with the category's icon.
 class CategoryChips extends StatelessWidget {

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +26,9 @@ import '../../services/cloud_backup.dart';
 import '../../services/cloud_sync.dart';
 import '../../services/file_service.dart';
 import '../backup/google_connect.dart';
+import '../../l10n/text.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 
 /// Who you are, and where your data is: the profile, the Google backup, the personal details
 /// and the backup files, all in one place.
@@ -225,7 +228,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
+      appBar: AppBar(title: const Text('Account'), actions: const [HelpButton(TutorialId.backup)]),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [

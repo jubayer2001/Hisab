@@ -7,6 +7,7 @@ import '../core/dates.dart';
 import '../core/money.dart';
 import '../data/db/tables.dart';
 import '../data/providers.dart';
+import '../l10n/l10n.dart';
 import 'notifications.dart';
 
 /// Overridden in main() with the service that was initialised before the app started.
@@ -29,6 +30,8 @@ final notificationActionProvider =
 
 /// Keeps the 9 AM due-date reminders for open dhar entries in step with the list.
 final dharReminderSyncProvider = Provider<void>((ref) {
+  ref.watch(languageProvider);
+  ref.watch(bengaliDigitsProvider);
   final service = ref.watch(notificationServiceProvider);
   final records = ref.watch(dharRecordsProvider);
   final payments = ref.watch(dharPaymentsProvider);
@@ -39,10 +42,8 @@ final dharReminderSyncProvider = Provider<void>((ref) {
       if (!v.isSettled && v.record.dueDate != null)
         DharReminder(
           id: v.record.id,
-          title: v.isLent ? '${v.record.person} owes you ${formatTaka(v.remaining)}' : 'Pay back ${v.record.person}',
-          body: v.isLent
-              ? 'Due today. A good time to ask for it back.'
-              : '${formatTaka(v.remaining)} is due today.',
+          title: tr(v.isLent ? '${v.record.person} owes you ${formatTaka(v.remaining)}' : 'Pay back ${v.record.person}'),
+          body: tr(v.isLent ? 'Due today. A good time to ask for it back.' : '${formatTaka(v.remaining)} is due today.'),
           due: parseDayKey(v.record.dueDate!),
         ),
   ];
@@ -63,6 +64,9 @@ final exactAlarmsAllowedProvider = FutureProvider.autoDispose<bool>(
 /// Watched once from the app shell; it does its work as a side effect.
 final reminderSyncProvider = Provider<void>((ref) {
   final settings = ref.watch(reminderSettingsProvider);
+  // The scheduled texts are fixed when scheduled, so a language change schedules them again.
+  ref.watch(languageProvider);
+  ref.watch(bengaliDigitsProvider);
   final service = ref.watch(notificationServiceProvider);
   final entries = ref.watch(allEntriesProvider);
   final noSpend = ref.watch(noSpendDaysProvider);
@@ -80,9 +84,9 @@ final reminderSyncProvider = Provider<void>((ref) {
   if (settled) {
     todayBody = null;
   } else if (todayExpenses > 0) {
-    todayBody = '${formatTaka(todayExpenses)} logged today. Anything else to add?';
+    todayBody = tr('${formatTaka(todayExpenses)} logged today. Anything else to add?');
   } else {
-    todayBody = "You haven't added any expenses today. Did you spend anything?";
+    todayBody = tr("You haven't added any expenses today. Did you spend anything?");
   }
 
   unawaited(

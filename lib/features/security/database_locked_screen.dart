@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import '../../data/db/database_security.dart';
+import '../../l10n/text.dart';
 
 /// Shown instead of the app when the encrypted data cannot be opened. This should never happen
 /// on a healthy phone. It can follow a reset of the phone's secure storage (for example after the

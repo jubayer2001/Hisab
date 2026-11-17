@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +15,7 @@ import '../../data/erase.dart';
 import '../../services/cloud_backup.dart';
 import '../../services/cloud_sync.dart';
 import '../../services/file_service.dart';
+import '../../l10n/text.dart';
 
 /// The word that has to be typed before anything is erased.
 const eraseWord = 'ERASE';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../l10n/l10n.dart';
 
 /// What the user chose in a notification.
 abstract final class ReminderAction {
@@ -70,7 +71,7 @@ class NotificationService {
   /// already spent today the second button reads "No more spending today", because "No spending
   /// today" would be untrue.
   static String noSpendLabel({required bool spentToday}) =>
-      spentToday ? 'No more spending today' : 'No spending today';
+      tr(spentToday ? 'No more spending today' : 'No spending today');
 
   @visibleForTesting
   NotificationDetails detailsFor({required bool spentToday}) => NotificationDetails(
@@ -82,9 +83,9 @@ class NotificationService {
           priority: Priority.high,
           category: AndroidNotificationCategory.reminder,
           actions: [
-            const AndroidNotificationAction(
+            AndroidNotificationAction(
               ReminderAction.add,
-              'Add expense',
+              tr('Add expense'),
               showsUserInterface: true,
               cancelNotification: true,
             ),
@@ -105,8 +106,8 @@ class NotificationService {
   Future<void> showTest() {
     return _plugin.show(
       id: _testId,
-      title: title,
-      body: 'This is a test reminder. Your real one arrives at the time you chose.',
+      title: tr(title),
+      body: tr('This is a test reminder. Your real one arrives at the time you chose.'),
       notificationDetails: detailsFor(spentToday: false),
     );
   }
@@ -179,8 +180,8 @@ class NotificationService {
       if (i == 0 && todayBody == null) continue;
       await _plugin.zonedSchedule(
         id: _firstId + i,
-        title: title,
-        body: i == 0 ? todayBody : genericBody,
+        title: tr(title),
+        body: i == 0 ? todayBody : tr(genericBody),
         scheduledDate: when,
         notificationDetails: detailsFor(spentToday: i == 0 && spentToday),
         androidScheduleMode: mode,

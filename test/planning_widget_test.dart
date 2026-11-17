@@ -44,23 +44,40 @@ void main() {
     expect(find.text('Food'), findsOneWidget);
     expect(find.text('Transport'), findsOneWidget);
     expect(find.text('75%'), findsOneWidget); // Food is 180 of 240
+    await tester.scrollUntilVisible(find.text('Each day this month'), 200);
     expect(find.text('Each day this month'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('Average per day'), 200);
     expect(find.textContaining('Average per day'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Week'), -200);
 
     await tester.tap(find.text('Week'));
     await h.settle(tester);
+    await tester.scrollUntilVisible(find.text('Each day this week'), 200);
     expect(find.text('Each day this week'), findsOneWidget);
+    await tester.fling(find.byType(ListView).first, const Offset(0, 2000), 4000); // back to the top
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Year'));
     await h.settle(tester);
+    // The Year page has two Scrollables (the page and the month grid inside it): scroll the page.
+    await tester.scrollUntilVisible(
+      find.text('Each month'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Each month'), findsOneWidget);
+    await tester.fling(find.byType(ListView).first, const Offset(0, 2000), 4000); // back to the top
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Day'));
     await h.settle(tester);
+    await tester.scrollUntilVisible(find.text('Entries'), 200);
     expect(find.text('Entries'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('−৳180'), 200);
     expect(find.text('−৳180'), findsOneWidget);
     await tester.scrollUntilVisible(find.byTooltip('Previous'), -200);
+    await tester.ensureVisible(find.byTooltip('Previous'));
+    await tester.pump();
 
     // Going back a day finds nothing, and the arrows turn it around again.
     await tester.tap(find.byTooltip('Previous'));
@@ -68,14 +85,15 @@ void main() {
     expect(find.text('Nothing in this period'), findsOneWidget);
     await tester.tap(find.byTooltip('Next'));
     await h.settle(tester);
-    expect(find.text('Entries'), findsOneWidget);
     expect(tester.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.chevron_right_rounded)).onPressed, isNull);
+    await tester.scrollUntilVisible(find.text('Entries'), 200);
+    expect(find.text('Entries'), findsOneWidget);
 
     await h.closeApp(tester);
   });
 
   testWidgets('Budgets: set a monthly budget, get warned at 80%, see it on Home', (tester) async {
-    await h.pumpApp(tester);
+    await h.pumpApp(tester, prefs: homeNoticesOn);
     await h.openFromMore(tester, 'Budgets');
 
     expect(find.text('Set monthly budget'), findsOneWidget);
@@ -140,7 +158,7 @@ void main() {
   });
 
   testWidgets('Budgets: a category budget shows its progress', (tester) async {
-    await h.pumpApp(tester);
+    await h.pumpApp(tester, prefs: homeNoticesOn);
     final food = await h.category(tester, 'Food');
     await h.write(tester, () => h.db.setBudget(categoryId: food.id, amountPoisha: 50000));
     await h.addEntry(tester, amount: 45000, categoryId: food.id, date: today());
@@ -156,7 +174,7 @@ void main() {
   });
 
   testWidgets('Recurring: confirm a due bill in one tap, and skip another', (tester) async {
-    await h.pumpApp(tester);
+    await h.pumpApp(tester, prefs: homeNoticesOn);
     final rent = await h.category(tester, 'Rent');
     final bills = await h.category(tester, 'Bills & Recharge');
     await h.write(
@@ -318,7 +336,7 @@ void main() {
   });
 
   testWidgets('Dhar: a due date schedules a reminder, and settling removes it', (tester) async {
-    await h.pumpApp(tester);
+    await h.pumpApp(tester, prefs: homeNoticesOn);
     final id = await h.write(
       tester,
       () => h.db.addDhar(
@@ -345,17 +363,15 @@ void main() {
     await h.closeApp(tester);
   });
 
-  testWidgets('Home shows the logging streak', (tester) async {
+  testWidgets('Home has a language button instead of the logging streak chip', (tester) async {
     await h.pumpApp(tester);
-    expect(find.text('1 day'), findsNothing);
-
     final food = await h.category(tester, 'Food');
     await h.addEntry(tester, amount: 1000, categoryId: food.id, date: daysFromNow(-2));
     await h.addEntry(tester, amount: 1000, categoryId: food.id, date: daysFromNow(-1));
-    expect(find.text('2 days'), findsOneWidget); // yesterday and the day before; today still open
-
     await h.addEntry(tester, amount: 1000, categoryId: food.id, date: today());
-    expect(find.text('3 days'), findsOneWidget);
+
+    expect(find.text('3 days'), findsNothing); // the streak chip is gone
+    expect(find.text('বাংলা'), findsOneWidget); // the language button names the other language
 
     await h.closeApp(tester);
   });

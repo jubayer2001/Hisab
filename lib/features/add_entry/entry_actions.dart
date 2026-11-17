@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/dates.dart';
@@ -8,6 +8,7 @@ import '../../data/db/app_database.dart';
 import '../../data/logic/budgets.dart';
 import '../../data/providers.dart';
 import '../../data/summary.dart';
+import '../../l10n/text.dart';
 
 /// Asks "Delete this entry?" before a single expense or income is deleted. True only if the
 /// person pressed the red Delete button. Undo is still offered afterwards.
@@ -43,7 +44,7 @@ Future<void> deleteEntryWithUndo(BuildContext context, WidgetRef ref, EntryWithC
       SnackBar(
         content: Text('Deleted ${formatTaka(item.entry.amountPoisha)} · ${item.category.name}'),
         duration: const Duration(seconds: 6),
-        action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntry(item.entry)),
+        action: SnackBarAction(label: tr('Undo'), onPressed: () => db.restoreEntry(item.entry)),
       ),
     );
 }
@@ -61,7 +62,7 @@ Future<void> deleteEntriesWithUndo(BuildContext context, WidgetRef ref, List<Ent
       SnackBar(
         content: Text(removed.length == 1 ? 'Deleted 1 entry' : 'Deleted ${removed.length} entries'),
         duration: const Duration(seconds: 6),
-        action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntries(removed)),
+        action: SnackBarAction(label: tr('Undo'), onPressed: () => db.restoreEntries(removed)),
       ),
     );
 }
@@ -113,7 +114,7 @@ Future<void> addQuickEntry(BuildContext context, WidgetRef ref, QuickAdd quick) 
           'Added ${quick.label} ${formatTaka(quick.amountPoisha)}${warning == null ? '' : '\n$warning'}',
         ),
         duration: const Duration(seconds: 4),
-        action: SnackBarAction(label: 'Undo', onPressed: () => db.deleteEntry(id)),
+        action: SnackBarAction(label: tr('Undo'), onPressed: () => db.deleteEntry(id)),
       ),
     );
 }

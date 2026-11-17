@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
@@ -7,6 +7,7 @@ import '../../core/money.dart';
 import '../../data/db/app_database.dart';
 import '../../features/add_entry/add_entry_sheet.dart';
 import '../../features/add_entry/entry_actions.dart';
+import '../../l10n/text.dart';
 
 /// One expense or income row: category icon, title, small detail line and the amount.
 class EntryTile extends StatelessWidget {
@@ -105,7 +106,7 @@ class EntryTile extends StatelessWidget {
               ),
               if (onDelete != null && !selecting)
                 IconButton(
-                  tooltip: 'Delete entry',
+                  tooltip: tr('Delete entry'),
                   visualDensity: VisualDensity.compact,
                   onPressed: onDelete,
                   icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),

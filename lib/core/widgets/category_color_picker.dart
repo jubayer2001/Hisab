@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import 'sheet.dart';
+import '../../l10n/text.dart';
 
 Future<Color?> showCategoryColorPicker(BuildContext context, {required Color initialColor}) =>
     showAppSheet<Color>(context, builder: (_) => CategoryColorPicker(initialColor: initialColor));

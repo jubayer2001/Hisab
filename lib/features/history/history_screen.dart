@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
@@ -6,10 +6,15 @@ import '../../core/dates.dart';
 import '../../core/money.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/entry_tile.dart';
+import '../../core/widgets/period_picker.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
+import '../../data/logic/periods.dart';
 import '../../data/providers.dart';
 import '../add_entry/entry_actions.dart';
+import '../../l10n/text.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -22,6 +27,50 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   final _searchController = TextEditingController();
   String _query = '';
   String? _type; // null = all
+
+  /// Day, month or year to look at; null shows every entry, as History always has.
+  PeriodType? _period;
+
+  /// 0 is the current day/month/year, -1 the one before. You cannot look ahead.
+  int _offset = 0;
+
+  Period? _currentPeriod(DateTime today) =>
+      _period == null ? null : shiftPeriod(periodFor(_period!, today), _offset);
+
+  void _setPeriod(PeriodType? period) => setState(() {
+    _period = period;
+    _offset = 0;
+  });
+
+  /// Opens the calendar to jump to any day, week, month or year.
+  Future<void> _pickPeriod() async {
+    final choice = await showPeriodPicker(context, type: _period ?? PeriodType.month, offset: _offset);
+    if (choice == null || !mounted) return;
+    setState(() {
+      _period = choice.type;
+      _offset = choice.offset.clamp(-1200, 0);
+    });
+  }
+
+  void _move(int delta) =>
+      setState(() => _offset = (_offset + delta).clamp(-1200, 0));
+
+  /// "Today", "This month", "This year", or the named one when you have moved back.
+  String _periodName(Period period, DateTime today) {
+    if (_offset == 0) {
+      switch (period.type) {
+        case PeriodType.week:
+          return 'This week';
+        case PeriodType.month:
+          return 'This month';
+        case PeriodType.year:
+          return 'This year';
+        default:
+          break;
+      }
+    }
+    return periodLabel(period, now: today);
+  }
 
   /// Ids of the entries ticked for deleting. Empty means normal browsing.
   final Set<int> _selected = {};
@@ -36,7 +85,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     super.dispose();
   }
 
-  bool _matches(EntryWithCategory e) {
+  bool _matches(EntryWithCategory e, Period? period) {
+    if (period != null && !period.containsKey(e.entry.date)) return false;
     if (_type != null && e.entry.type != _type) return false;
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return true;
@@ -57,7 +107,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     final today = ref.watch(todayProvider);
 
     final all = async.value ?? const <EntryWithCategory>[];
-    final filtered = all.where(_matches).toList();
+    final period = _currentPeriod(today);
+    final filtered = all.where((e) => _matches(e, period)).toList();
+    var spentTotal = 0, incomeTotal = 0;
+    for (final e in filtered) {
+      e.isExpense
+          ? spentTotal += e.entry.amountPoisha
+          : incomeTotal += e.entry.amountPoisha;
+    }
 
     // Flat list: a header row for each day followed by that day's entries.
     final spentByDay = <String, int>{};
@@ -89,7 +146,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         appBar: _selecting
             ? AppBar(
                 leading: IconButton(
-                  tooltip: 'Cancel selection',
+                  tooltip: tr('Cancel selection'),
                   icon: const Icon(Icons.close_rounded),
                   onPressed: () => setState(_selected.clear),
                 ),
@@ -101,7 +158,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                 ],
               )
-            : AppBar(title: const Text('History')),
+            : AppBar(title: const Text('History'), actions: const [HelpButton(TutorialId.history)]),
         body: Column(
           children: [
             Padding(
@@ -111,12 +168,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 onChanged: (v) => setState(() => _query = v),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search note, category or amount',
+                  hintText: tr('Search note, category or amount'),
                   prefixIcon: const Icon(Icons.search_rounded),
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
-                          tooltip: 'Clear',
+                          tooltip: tr('Clear'),
                           icon: const Icon(Icons.close_rounded),
                           onPressed: () {
                             _searchController.clear();
@@ -134,6 +191,27 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: SizedBox(
                 width: double.infinity,
+                child: SegmentedButton<PeriodType?>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: null, label: Text('All')),
+                    ButtonSegment(value: PeriodType.day, label: Text('Day')),
+                    ButtonSegment(value: PeriodType.week, label: Text('Week')),
+                    ButtonSegment(
+                      value: PeriodType.month,
+                      label: Text('Month'),
+                    ),
+                    ButtonSegment(value: PeriodType.year, label: Text('Year')),
+                  ],
+                  selected: {_period},
+                  onSelectionChanged: (s) => _setPeriod(s.first),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+              child: SizedBox(
+                width: double.infinity,
                 child: SegmentedButton<String?>(
                   showSelectedIcon: false,
                   segments: const [
@@ -146,15 +224,85 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                 ),
               ),
             ),
+            if (period != null) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: tr('Previous'),
+                      onPressed: () => _move(-1),
+                      icon: const Icon(Icons.chevron_left_rounded),
+                    ),
+                    Expanded(
+                      child: Center(
+                        child: PeriodPickButton(
+                          label: _periodName(period, today),
+                          onTap: _pickPeriod,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: tr('Next'),
+                      onPressed: _offset == 0 ? null : () => _move(1),
+                      icon: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                child: Text.rich(
+                  TextSpan(
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.muted,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '${filtered.length}',
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
+                      TextSpan(
+                        text: filtered.length == 1 ? ' entry' : ' entries',
+                      ),
+                      const TextSpan(text: ' · Spent '),
+                      TextSpan(
+                        text: formatTaka(spentTotal),
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
+                      if (incomeTotal > 0) ...[
+                        const TextSpan(text: ' · Income '),
+                        TextSpan(
+                          text: formatTaka(incomeTotal),
+                          style: TextStyle(color: theme.colorScheme.onSurface),
+                        ),
+                      ],
+                    ],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
             Expanded(
               child: async.isLoading && all.isEmpty
                   ? const Center(child: CircularProgressIndicator())
                   : filtered.isEmpty
                   ? EmptyState(
                       icon: all.isEmpty ? Icons.receipt_long_outlined : Icons.search_off_rounded,
-                      title: all.isEmpty ? 'Nothing here yet' : 'No matches',
+                      title: all.isEmpty
+                          ? 'Nothing here yet'
+                          : (period != null && _query.trim().isEmpty && _type == null)
+                          ? 'Nothing in this ${switch (_period) {
+                              PeriodType.day => 'day',
+                              PeriodType.week => 'week',
+                              PeriodType.month => 'month',
+                              _ => 'year',
+                            }}'
+                          : 'No matches',
                       message: all.isEmpty
                           ? 'Every expense and income you add will be listed here, grouped by day.'
+                          : (period != null && _query.trim().isEmpty && _type == null)
+                          ? 'No entries were recorded for this period.'
                           : 'Try a different word or clear the filter.',
                     )
                   : ListView.builder(

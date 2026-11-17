@@ -4,7 +4,7 @@ A calm, offline expense tracker for Bangladesh. Track expenses, income and savin
 
 **[Download the latest APK](https://github.com/jubayer2001/Hisab/releases/latest/download/Hisab.apk)** · [All releases](https://github.com/jubayer2001/Hisab/releases)
 
-> **Version 1.1.** Your saved balance carries into the next month (only saved money, never a shortfall), money can be set aside for savings goals, categories can have any colour, and deleting an entry now asks first. Each release lists the SHA-256 of `Hisab.apk` so you can check your download. See [what is new](https://github.com/jubayer2001/Hisab/releases/latest).
+> **Version 2.0.** Hisab now speaks Bengali (one tap on Home, with bigger text and Bengali or English numbers), Reports and History have a small calendar to jump to any day, week, month or year, tapping a category in Reports lists everything spent on it, savings goals show on Home, and every feature has a short animated tutorial. Each release lists the SHA-256 of `Hisab.apk` so you can check your download. See [what is new](https://github.com/jubayer2001/Hisab/releases/latest).
 
 ## Install on your Android phone
 
@@ -50,7 +50,7 @@ The pictures use made-up sample data.
 
 ## Roadmap
 
-Test versions go straight to the developer's phone over USB. Only 1.0 is published as a download here.
+Test versions go straight to the developer's phone over USB. Released versions are published as downloads here.
 
 | Version | What it adds | Status |
 |---|---|---|
@@ -60,6 +60,7 @@ Test versions go straight to the developer's phone over USB. Only 1.0 is publish
 | **v0.4** | Recurring bills, savings goals, the dhar (lend and borrow) tracker and the logging streak. | Done, tested on a phone |
 | **v1.0** | First-run welcome (name, monthly budget, reminder time). Backup and restore, optional automatic backup to your Google account, CSV export, a proper app icon and splash screen, and screenshots here. Delete and erase, monthly income, encryption, app lock and a privacy page. | Released |
 | **v1.1** | Saved balance carries forward month to month, clearer savings allocation, a year view of every month, custom category colours, a confirmation before deleting, and a "No more spending today" reminder button. | Released |
+| **v2.0** | Bengali language (one-tap switch, Noto Sans Bengali, bigger text sizes, Bengali or English digits). A calendar picker for Reports and History, and a Week filter in History. Tap a category in Reports to see all its spending. Savings goals on Home, a choice of extra detail beside "Spent today", Home notices that can be hidden, and a layout that adapts to the phone's width. A "what's new" pager after an update, a first-run tour, and a tutorial for every feature. | Released |
 
 If a version has bugs, a small fix release (for example v0.2.1) comes before the next one. Changes requested after trying a version are made before building on top of it, so the list can grow a little.
 

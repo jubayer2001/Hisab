@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
@@ -9,6 +9,7 @@ import '../../core/widgets/category_color_picker.dart';
 import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/providers.dart';
+import '../../l10n/text.dart';
 
 class CategoriesScreen extends ConsumerStatefulWidget {
   const CategoriesScreen({super.key});
@@ -173,7 +174,7 @@ class _CategoryEditorState extends ConsumerState<_CategoryEditor> {
             ),
             if (widget.existing != null)
               IconButton(
-                tooltip: 'Delete',
+                tooltip: tr('Delete'),
                 onPressed: _remove,
                 icon: Icon(Icons.delete_outline_rounded, color: colors.spending),
               ),

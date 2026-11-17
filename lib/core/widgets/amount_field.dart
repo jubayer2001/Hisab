@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/l10n.dart';
 import '../money.dart';
 
 /// A text field for typing a Taka amount (digits and one decimal point).
@@ -57,8 +58,8 @@ InputDecoration fieldDecoration(BuildContext context, {String? label, String? hi
     borderSide: BorderSide(color: scheme.outlineVariant),
   );
   return InputDecoration(
-    labelText: label,
-    hintText: hint,
+    labelText: label == null ? null : tr(label),
+    hintText: hint == null ? null : tr(hint),
     prefixText: prefix,
     counterText: '',
     filled: true,

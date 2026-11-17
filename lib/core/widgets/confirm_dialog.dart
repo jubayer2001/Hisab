@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../app/theme.dart';
+import '../../l10n/text.dart';
 
 /// Asks "are you sure?" before something that cannot be undone. Returns true only if the
 /// person pressed the red button.

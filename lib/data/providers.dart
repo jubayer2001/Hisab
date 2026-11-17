@@ -8,6 +8,7 @@ import 'db/tables.dart';
 import 'logic/auto_income.dart';
 import 'logic/budgets.dart';
 import 'logic/funds.dart';
+import 'logic/periods.dart';
 import 'logic/planning.dart';
 import 'summary.dart';
 
@@ -66,6 +67,18 @@ final todayEntriesProvider = Provider<List<EntryWithCategory>>((ref) {
   final entries = ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[];
   final today = dayKey(ref.watch(todayProvider));
   return entries.where((e) => e.entry.date == today).toList();
+});
+
+/// What was spent so far this week (poisha; weeks run Saturday to Friday), for the optional
+/// "This week" detail beside "Spent today" on Home.
+final weekExpenseProvider = Provider<int>((ref) {
+  final entries = ref.watch(allEntriesProvider).value ?? const <EntryWithCategory>[];
+  final today = ref.watch(todayProvider);
+  final week = periodFor(PeriodType.week, today);
+  final todayKey = dayKey(today);
+  return entries
+      .where((e) => e.isExpense && week.containsKey(e.entry.date) && e.entry.date.compareTo(todayKey) <= 0)
+      .fold(0, (sum, e) => sum + e.entry.amountPoisha);
 });
 
 final quickAddsProvider = Provider<List<QuickAdd>>((ref) {

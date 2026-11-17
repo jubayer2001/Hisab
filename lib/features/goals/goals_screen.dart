@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -16,6 +16,9 @@ import '../../data/db/app_database.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
 import '../add_entry/entry_actions.dart';
+import '../../l10n/text.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 
 class GoalsScreen extends ConsumerWidget {
   const GoalsScreen({super.key});
@@ -25,7 +28,7 @@ class GoalsScreen extends ConsumerWidget {
     final goals = ref.watch(goalProgressProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Savings goals')),
+      appBar: AppBar(title: const Text('Savings goals'), actions: const [HelpButton(TutorialId.goals)]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showGoalEditor(context),
         icon: const Icon(Icons.add_rounded),
@@ -113,7 +116,7 @@ class _GoalCard extends ConsumerWidget {
               Expanded(child: Text(progress.goal.name, style: theme.textTheme.titleMedium)),
               Text('${(progress.fraction * 100).floor()}%', style: theme.textTheme.titleMedium?.copyWith(color: color)),
               IconButton(
-                tooltip: 'Delete this goal',
+                tooltip: tr('Delete this goal'),
                 visualDensity: VisualDensity.compact,
                 onPressed: () => _delete(context, ref),
                 icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
@@ -178,7 +181,7 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
         SheetHeader(
           progress.goal.name,
           trailing: IconButton(
-            tooltip: 'Edit goal',
+            tooltip: tr('Edit goal'),
             onPressed: () => showGoalEditor(context, existing: progress.goal),
             icon: const Icon(Icons.edit_outlined),
           ),
@@ -235,7 +238,7 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
               ),
               subtitle: Text('${friendlyDay(parseDayKey(item.entry.date))} · Spent from goal'),
               trailing: IconButton(
-                tooltip: 'Delete expense',
+                tooltip: tr('Delete expense'),
                 icon: const Icon(Icons.close_rounded, size: 18),
                 onPressed: () async {
                   if (!await confirmDeleteEntry(context, item) || !context.mounted) return;
@@ -257,7 +260,7 @@ class _GoalDetailState extends ConsumerState<_GoalDetail> {
               ),
               subtitle: Text(friendlyDay(parseDayKey(d.date))),
               trailing: IconButton(
-                tooltip: 'Delete',
+                tooltip: tr('Delete'),
                 icon: const Icon(Icons.close_rounded, size: 18),
                 onPressed: () => db.deleteDeposit(d.id),
               ),
@@ -586,7 +589,7 @@ class _GoalEditorState extends ConsumerState<_GoalEditor> {
             ),
             if (_deadline != null)
               IconButton(
-                tooltip: 'Remove deadline',
+                tooltip: tr('Remove deadline'),
                 onPressed: () => setState(() => _deadline = null),
                 icon: const Icon(Icons.close_rounded),
               ),

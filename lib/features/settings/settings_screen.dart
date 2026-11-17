@@ -1,5 +1,6 @@
 import 'package:app_settings/app_settings.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/material.dart' as m show Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -11,10 +12,14 @@ import '../../app/theme.dart';
 import '../../core/money.dart';
 import '../../core/widgets/level_bar.dart';
 import '../../core/widgets/profile_avatar.dart';
+import '../../core/widgets/sheet.dart';
+import '../../data/logic/home_logic.dart';
+import '../../l10n/l10n.dart';
 import '../../data/providers.dart';
 import '../../services/cloud_sync.dart';
 import '../../services/notifications.dart';
 import '../../services/reminder_providers.dart';
+import '../../l10n/text.dart';
 
 /// The "More" tab: the money tools with a live number on each, then reminders, appearance
 /// and help. The profile is the small icon in the corner and opens Account.
@@ -85,6 +90,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final colors = context.hisab;
     final mode = ref.watch(themeModeProvider);
     final reminder = ref.watch(reminderSettingsProvider);
+    final notices = ref.watch(homeNoticesProvider);
+    final homeDetail = ref.watch(homeDetailProvider);
+    final language = ref.watch(languageProvider);
+    final textSize = ref.watch(textSizeProvider);
+    final bengaliDigits = ref.watch(bengaliDigitsProvider);
     final allowed = ref.watch(notificationsAllowedProvider).value ?? true;
     final exactAllowed = ref.watch(exactAlarmsAllowedProvider).value ?? true;
     final lastFile = ref.watch(lastBackupProvider);
@@ -312,6 +322,122 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               },
             ),
           ],
+          section('Home notices'),
+          card([
+            SwitchListTile(
+              contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+              secondary: const _IconBox(Icons.home_outlined),
+              value: notices.enabled,
+              onChanged: ref.read(homeNoticesProvider.notifier).setEnabled,
+              title: const Text('Show notices on Home'),
+              subtitle: const Text(
+                'Backup, income, budget, bills and Dhar reminders',
+              ),
+            ),
+            for (final (kind, icon, title, subtitle) in const [
+              (
+                HomeNotice.backup,
+                Icons.cloud_off_rounded,
+                'Backup reminder',
+                'When your data is only on this phone',
+              ),
+              (
+                HomeNotice.income,
+                Icons.payments_outlined,
+                'Monthly income note',
+                'When your monthly income is added',
+              ),
+              (
+                HomeNotice.budget,
+                Icons.warning_amber_rounded,
+                'Budget warnings',
+                'When a budget is nearly used or over',
+              ),
+              (
+                HomeNotice.bills,
+                Icons.handshake_outlined,
+                'Bills and Dhar due',
+                'Things waiting for you to confirm or collect',
+              ),
+            ])
+              SwitchListTile(
+                contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                secondary: _IconBox(icon),
+                value: notices.kinds.contains(kind),
+                onChanged: notices.enabled
+                    ? (v) => ref
+                          .read(homeNoticesProvider.notifier)
+                          .setKind(kind, v)
+                    : null,
+                title: Text(title),
+                subtitle: Text(subtitle),
+              ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: soft(
+              'Hidden notices are not lost. Budgets, Monthly bills & income and Dhar still show everything that is due.',
+            ),
+          ),
+          section('Spent today card'),
+          card([
+            _ListRow(
+              icon: Icons.insert_chart_outlined_rounded,
+              title: 'Show beside "Spent today"',
+              subtitle: _homeDetailChoices.firstWhere((c) => c.detail == homeDetail).title,
+              onTap: () => showAppSheet<void>(context, builder: (_) => const _HomeDetailSheet()),
+            ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: soft('Choose one extra detail for the empty space on Home\'s top card, or nothing.'),
+          ),
+          section('Language and text'),
+          card([
+            _ChoiceRow(
+              icon: Icons.translate_rounded,
+              title: 'Language',
+              subtitle: 'Changes every screen in the app',
+              child: SegmentedButton<AppLanguage>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: AppLanguage.en, label: m.Text('English')),
+                  ButtonSegment(value: AppLanguage.bn, label: m.Text('বাংলা')),
+                ],
+                selected: {language},
+                onSelectionChanged: (s) => ref.read(languageProvider.notifier).set(s.first),
+              ),
+            ),
+            _ChoiceRow(
+              icon: Icons.format_size_rounded,
+              title: 'Text size',
+              subtitle: 'Bigger text is easier to read',
+              child: SegmentedButton<double>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: 1.0, label: Text('Normal')),
+                  ButtonSegment(value: 1.25, label: Text('Large')),
+                  ButtonSegment(value: 1.5, label: Text('Extra large')),
+                ],
+                selected: {textSize},
+                onSelectionChanged: (s) => ref.read(textSizeProvider.notifier).set(s.first),
+              ),
+            ),
+            _ChoiceRow(
+              icon: Icons.pin_outlined,
+              title: 'Numbers',
+              subtitle: 'Choose Bengali or English numerals',
+              child: SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: true, label: m.Text('বাংলা ১২৩')),
+                  ButtonSegment(value: false, label: m.Text('English 123')),
+                ],
+                selected: {bengaliDigits},
+                onSelectionChanged: (s) => ref.read(bengaliDigitsProvider.notifier).set(s.first),
+              ),
+            ),
+          ]),
           section('Appearance'),
           Row(
             children: [
@@ -336,6 +462,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const _ReminderGuide(),
           const SizedBox(height: 12),
           card([
+            _ListRow(
+              icon: Icons.school_outlined,
+              title: 'Help and tutorials',
+              subtitle: 'Tutorials for every feature, and the tour',
+              onTap: () => context.push('/help'),
+            ),
             _ListRow(
               icon: Icons.verified_user_outlined,
               title: 'Privacy and security',
@@ -370,6 +502,102 @@ class _IconBox extends StatelessWidget {
       height: 40,
       decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(12)),
       child: Icon(icon, color: scheme.primary, size: 22),
+    );
+  }
+}
+
+/// What can be shown beside "Spent today", in the order the choice sheet lists them.
+const _homeDetailChoices = <({HomeDetail detail, String title, String about})>[
+  (detail: HomeDetail.none, title: 'Nothing', about: 'Home looks exactly as it always has'),
+  (
+    detail: HomeDetail.budget,
+    title: 'Budget status',
+    about: 'Daily allowance, a warning at 80%, or how far over (needs a monthly budget)',
+  ),
+  (detail: HomeDetail.week, title: 'This week', about: 'What you have spent since Saturday'),
+  (detail: HomeDetail.average, title: 'Daily average', about: 'This month\'s spending divided by the days so far'),
+  (detail: HomeDetail.bill, title: 'Bill due soon', about: 'A monthly bill that falls due within 3 days'),
+];
+
+/// Pick the one extra detail shown beside "Spent today" on Home. It only appears when it has
+/// something to say, and "Nothing" (the default) leaves Home as it was.
+class _HomeDetailSheet extends ConsumerWidget {
+  const _HomeDetailSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final current = ref.watch(homeDetailProvider);
+    return SheetScaffold(
+      footer: FilledButton.tonal(onPressed: () => Navigator.pop(context), child: const Text('Done')),
+      children: [
+        const SheetHeader('Beside "Spent today"'),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            'One detail at a time. It appears only when it has something to say.',
+            style: theme.textTheme.bodySmall?.copyWith(color: context.hisab.muted),
+          ),
+        ),
+        for (final choice in _homeDetailChoices)
+          Semantics(
+            inMutuallyExclusiveGroup: true,
+            checked: current == choice.detail,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                current == choice.detail ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+                color: current == choice.detail ? theme.colorScheme.primary : context.hisab.muted,
+              ),
+              title: Text(choice.title),
+              subtitle: Text(choice.about),
+              onTap: () {
+                ref.read(homeDetailProvider.notifier).set(choice.detail);
+                Navigator.pop(context);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A setting with a title and a row of choices underneath it.
+class _ChoiceRow extends StatelessWidget {
+  const _ChoiceRow({required this.icon, required this.title, required this.subtitle, required this.child});
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _IconBox(icon),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.bodyLarge),
+                    Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: context.hisab.muted)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: child),
+        ],
+      ),
     );
   }
 }

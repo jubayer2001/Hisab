@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import '../../l10n/text.dart';
 
 /// Opens a bottom sheet that lifts above the keyboard. The sheet's content should be a
 /// [SheetScaffold], which scrolls when it is long and keeps the main button in view.

@@ -218,14 +218,17 @@ void main() {
     await tester.scrollUntilVisible(find.text('Remind me every evening'), 300);
     expect(find.text('10:00 PM'), findsOneWidget);
 
-    await tester.ensureVisible(find.byType(Switch));
+    // More now has several switches (Home notices too); the reminder's is the first.
+    await tester.ensureVisible(find.byType(Switch).first);
     await tester.pump();
-    await tester.tap(find.byType(Switch));
+    await tester.tap(find.byType(Switch).first);
     await h.settle(tester);
     expect(h.notifications.syncs.last.enabled, isFalse);
 
     // The test button is under "Help and about", further down.
     await tester.scrollUntilVisible(find.text('Send a test reminder'), 300);
+    await tester.ensureVisible(find.text('Send a test reminder'));
+    await tester.pump();
     await tester.tap(find.text('Send a test reminder'));
     await tester.pump();
     expect(h.notifications.testNotifications, 1);

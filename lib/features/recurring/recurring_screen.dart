@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -17,6 +17,9 @@ import '../../data/logic/auto_income.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
 import '../add_entry/entry_actions.dart';
+import '../../l10n/text.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 
 /// Monthly bills (which ask first) and monthly income (which can add itself), in one place.
 class RecurringScreen extends ConsumerWidget {
@@ -76,7 +79,7 @@ class RecurringScreen extends ConsumerWidget {
                   onChanged: (v) => db.updateRecurring(r.copyWith(isActive: v)),
                 ),
                 IconButton(
-                  tooltip: 'Delete this item',
+                  tooltip: tr('Delete this item'),
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _deleteWithUndo(context, ref, r),
                   icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
@@ -87,7 +90,7 @@ class RecurringScreen extends ConsumerWidget {
         );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Monthly bills & income')),
+      appBar: AppBar(title: const Text('Monthly bills & income'), actions: const [HelpButton(TutorialId.recurring)]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showRecurringEditor(context),
         icon: const Icon(Icons.add_rounded),
@@ -136,7 +139,7 @@ Future<void> _deleteWithUndo(BuildContext context, WidgetRef ref, Recurring item
       SnackBar(
         content: Text('Deleted ${item.title}'),
         duration: const Duration(seconds: 6),
-        action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreRecurring(item)),
+        action: SnackBarAction(label: tr('Undo'), onPressed: () => db.restoreRecurring(item)),
       ),
     );
 }
@@ -258,7 +261,7 @@ class _RecurringEditorState extends ConsumerState<_RecurringEditor> {
           trailing: isNew
               ? null
               : IconButton(
-                  tooltip: 'Delete',
+                  tooltip: tr('Delete'),
                   onPressed: _delete,
                   icon: Icon(Icons.delete_outline_rounded, color: colors.spending),
                 ),

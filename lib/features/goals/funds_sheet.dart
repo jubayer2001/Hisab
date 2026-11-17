@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +7,7 @@ import '../../core/money.dart';
 import '../../core/widgets/sheet.dart';
 import '../../data/logic/funds.dart';
 import '../../data/providers.dart';
+import '../../l10n/text.dart';
 
 Future<void> showFundsSheet(BuildContext context, {String title = 'Saved balance', String? caption, DateTime? asOf}) {
   final router = GoRouter.of(context);

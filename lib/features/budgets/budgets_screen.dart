@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
@@ -12,6 +12,9 @@ import '../../core/widgets/sheet.dart';
 import '../../data/db/tables.dart';
 import '../../data/logic/budgets.dart';
 import '../../data/providers.dart';
+import '../../l10n/text.dart';
+import '../guide/help_button.dart';
+import '../guide/tutorials.dart' show TutorialId;
 
 class BudgetsScreen extends ConsumerWidget {
   const BudgetsScreen({super.key});
@@ -38,7 +41,7 @@ class BudgetsScreen extends ConsumerWidget {
     final daysLeft = DateTime(today.year, today.month + 1, 0).day - today.day + 1;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Budgets')),
+      appBar: AppBar(title: const Text('Budgets'), actions: const [HelpButton(TutorialId.budgets)]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showBudgetEditor(context),
         icon: const Icon(Icons.add_rounded),
@@ -145,7 +148,7 @@ class BudgetsScreen extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            tooltip: 'Remove this budget',
+                            tooltip: tr('Remove this budget'),
                             visualDensity: VisualDensity.compact,
                             onPressed: () => _removeWithUndo(context, ref, s),
                             icon: Icon(Icons.delete_outline_rounded, size: 22, color: colors.muted),
@@ -183,7 +186,7 @@ Future<void> _removeWithUndo(BuildContext context, WidgetRef ref, BudgetStatus s
         content: Text('Removed the ${status.name} budget'),
         duration: const Duration(seconds: 6),
         action: SnackBarAction(
-          label: 'Undo',
+          label: tr('Undo'),
           onPressed: () => db.setBudget(categoryId: status.budget.categoryId, amountPoisha: status.budget.amountPoisha),
         ),
       ),
@@ -266,7 +269,7 @@ class _BudgetEditorState extends ConsumerState<_BudgetEditor> {
           trailing: existing == null
               ? null
               : IconButton(
-                  tooltip: 'Remove budget',
+                  tooltip: tr('Remove budget'),
                   onPressed: _remove,
                   icon: Icon(Icons.delete_outline_rounded, color: colors.spending),
                 ),

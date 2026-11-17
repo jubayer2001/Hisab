@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,9 +8,11 @@ import '../core/dates.dart';
 import '../data/erase.dart';
 import '../data/providers.dart';
 import '../features/add_entry/add_entry_sheet.dart';
+import '../features/guide/guide_logic.dart';
 import '../services/notifications.dart';
 import '../services/reminder_providers.dart';
 import 'settings_providers.dart';
+import '../l10n/text.dart';
 
 /// Bottom navigation: Home, History, [+], Reports, Settings.
 /// The middle item opens the add sheet instead of switching tabs.
@@ -39,6 +41,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
         if (action != null) _handleAction(action);
       }, fireImmediately: true);
       await _askForNotificationPermissionOnce();
+      await _showGuideOnce();
     });
   }
 
@@ -51,6 +54,23 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) ref.read(todayProvider.notifier).refresh();
+  }
+
+  /// A new user is offered the quick tour; someone who just updated sees what's new. Each is
+  /// shown once: it is marked as seen before it opens.
+  Future<void> _showGuideOnce() async {
+    if (!mounted) return;
+    final prefs = ref.read(sharedPrefsProvider);
+    final action = decideGuideAction(
+      tourPending: prefs.getBool(tourPendingKey) ?? false,
+      lastSeen: prefs.getString(lastSeenVersionKey),
+      current: currentVersionLabel,
+    );
+    if (action == GuideAction.none) return;
+    await prefs.remove(tourPendingKey);
+    await prefs.setString(lastSeenVersionKey, currentVersionLabel);
+    if (!mounted) return;
+    context.push(action == GuideAction.tour ? '/tour' : '/whats-new');
   }
 
   Future<void> _askForNotificationPermissionOnce() async {
@@ -102,18 +122,21 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     ref.watch(dharReminderSyncProvider);
     // Monthly income that is due adds itself.
     ref.watch(autoIncomeSyncProvider);
+    // The bar's labels are plain strings, so rebuild it when the language or digit style changes.
+    ref.watch(languageProvider);
+    ref.watch(bengaliDigitsProvider);
 
     return Scaffold(
       body: widget.shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _navIndex,
         onDestinationSelected: _onSelected,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'History'),
-          NavigationDestination(icon: _AddButton(), label: 'Add'),
-          NavigationDestination(icon: Icon(Icons.insert_chart_outlined), selectedIcon: Icon(Icons.insert_chart), label: 'Reports'),
-          NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view_rounded), label: 'More'),
+        destinations: [
+          NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home_rounded), label: tr('Home')),
+          NavigationDestination(icon: const Icon(Icons.receipt_long_outlined), selectedIcon: const Icon(Icons.receipt_long), label: tr('History')),
+          NavigationDestination(icon: const _AddButton(), label: tr('Add')),
+          NavigationDestination(icon: const Icon(Icons.insert_chart_outlined), selectedIcon: const Icon(Icons.insert_chart), label: tr('Reports')),
+          NavigationDestination(icon: const Icon(Icons.grid_view_outlined), selectedIcon: const Icon(Icons.grid_view_rounded), label: tr('More')),
         ],
       ),
     );

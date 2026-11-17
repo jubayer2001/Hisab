@@ -48,6 +48,7 @@ void main() {
     await h.settle(tester);
 
     // Now the app itself.
+    await h.skipTour(tester);
     expect(find.text('Spent today'), findsOneWidget);
     expect(find.textContaining(', Jubayer'), findsOneWidget);
     expect(find.textContaining('left of ৳25,000 budget'), findsOneWidget);
@@ -76,6 +77,7 @@ void main() {
     await tester.tap(find.text('Skip'));
     await h.settle(tester);
 
+    await h.skipTour(tester);
     expect(find.text('Spent today'), findsOneWidget);
     expect(find.textContaining(RegExp(r'Good (morning|afternoon|evening|night),')), findsNothing); // no ", name"
     expect(find.textContaining(RegExp(r'^Good (morning|afternoon|evening|night)$')), findsOneWidget);
@@ -103,6 +105,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Get started'));
     await h.settle(tester);
 
+    await h.skipTour(tester);
     expect(find.text('Spent today'), findsOneWidget);
     expect(h.notifications.syncs.last.enabled, isFalse);
 

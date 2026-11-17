@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/logic/home_logic.dart' show HomeDetail;
+import '../l10n/l10n.dart';
+import 'version.dart';
+
 /// Loaded once in main() and injected with an override.
 final sharedPrefsProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError('sharedPrefsProvider must be overridden in main()'),
@@ -71,8 +75,163 @@ class ReminderSettingsNotifier extends Notifier<ReminderSettings> {
 final reminderSettingsProvider =
     NotifierProvider<ReminderSettingsNotifier, ReminderSettings>(ReminderSettingsNotifier.new);
 
+/// The cards Home can show above the summary and below it. Each can be hidden on its own.
+enum HomeNotice { backup, income, budget, bills }
+
+/// Which Home notices are visible. They are all hidden until [enabled] is switched on in
+/// More; the per-kind choices are remembered for when it is.
+class HomeNotices {
+  const HomeNotices({required this.enabled, required this.kinds});
+
+  final bool enabled;
+  final Set<HomeNotice> kinds;
+
+  bool shows(HomeNotice kind) => enabled && kinds.contains(kind);
+
+  HomeNotices copyWith({bool? enabled, Set<HomeNotice>? kinds}) =>
+      HomeNotices(enabled: enabled ?? this.enabled, kinds: kinds ?? this.kinds);
+}
+
+class HomeNoticesNotifier extends Notifier<HomeNotices> {
+  static const _enabledKey = 'homeNotices';
+
+  /// Fixed words rather than enum names, so a saved choice survives obfuscated release builds.
+  static const _keys = {
+    HomeNotice.backup: 'homeNoticeBackup',
+    HomeNotice.income: 'homeNoticeIncome',
+    HomeNotice.budget: 'homeNoticeBudget',
+    HomeNotice.bills: 'homeNoticeBills',
+  };
+
+  @override
+  HomeNotices build() {
+    final prefs = ref.watch(sharedPrefsProvider);
+    return HomeNotices(
+      enabled: prefs.getBool(_enabledKey) ?? false,
+      kinds: {
+        for (final e in _keys.entries)
+          if (prefs.getBool(e.value) ?? true) e.key,
+      },
+    );
+  }
+
+  void setEnabled(bool value) {
+    state = state.copyWith(enabled: value);
+    ref.read(sharedPrefsProvider).setBool(_enabledKey, value);
+  }
+
+  void setKind(HomeNotice kind, bool value) {
+    final kinds = {...state.kinds};
+    value ? kinds.add(kind) : kinds.remove(kind);
+    state = state.copyWith(kinds: kinds);
+    ref.read(sharedPrefsProvider).setBool(_keys[kind]!, value);
+  }
+}
+
+final homeNoticesProvider = NotifierProvider<HomeNoticesNotifier, HomeNotices>(
+  HomeNoticesNotifier.new,
+);
+
+/// What the user wants beside "Spent today" on Home. The default, nothing, leaves Home as it was.
+class HomeDetailNotifier extends Notifier<HomeDetail> {
+  static const _key = 'homeDetail';
+
+  /// Fixed words rather than enum names, so a saved choice survives obfuscated release builds.
+  static const _codes = {
+    HomeDetail.none: 'none',
+    HomeDetail.budget: 'budget',
+    HomeDetail.week: 'week',
+    HomeDetail.average: 'average',
+    HomeDetail.bill: 'bill',
+  };
+
+  @override
+  HomeDetail build() {
+    final saved = ref.watch(sharedPrefsProvider).getString(_key);
+    return _codes.entries.firstWhere((e) => e.value == saved, orElse: () => const MapEntry(HomeDetail.none, 'none')).key;
+  }
+
+  void set(HomeDetail detail) {
+    state = detail;
+    ref.read(sharedPrefsProvider).setString(_key, _codes[detail]!);
+  }
+}
+
+final homeDetailProvider = NotifierProvider<HomeDetailNotifier, HomeDetail>(HomeDetailNotifier.new);
+
+/// English or Bengali. Saved as fixed words, like the other settings.
+class LanguageNotifier extends Notifier<AppLanguage> {
+  static const _key = 'language';
+
+  @override
+  AppLanguage build() {
+    final language = ref.watch(sharedPrefsProvider).getString(_key) == 'bn' ? AppLanguage.bn : AppLanguage.en;
+    L10n.setLanguage(language);
+    return language;
+  }
+
+  void set(AppLanguage language) {
+    L10n.setLanguage(language);
+    state = language;
+    ref.read(sharedPrefsProvider).setString(_key, language == AppLanguage.bn ? 'bn' : 'en');
+  }
+
+  void toggle() => set(state == AppLanguage.bn ? AppLanguage.en : AppLanguage.bn);
+}
+
+final languageProvider = NotifierProvider<LanguageNotifier, AppLanguage>(LanguageNotifier.new);
+
+/// How big the text is everywhere: 1 (normal), 1.25 (large) or 1.5 (extra large).
+class TextSizeNotifier extends Notifier<double> {
+  static const _key = 'textSize';
+  static const options = [1.0, 1.25, 1.5];
+
+  @override
+  double build() {
+    final saved = ref.watch(sharedPrefsProvider).getDouble(_key);
+    return options.contains(saved) ? saved! : 1.0;
+  }
+
+  void set(double value) {
+    state = value;
+    ref.read(sharedPrefsProvider).setDouble(_key, value);
+  }
+}
+
+final textSizeProvider = NotifierProvider<TextSizeNotifier, double>(TextSizeNotifier.new);
+
+/// In Bengali: show Bengali digits (১২৩, the default) or English ones (123).
+class BengaliDigitsNotifier extends Notifier<bool> {
+  static const _key = 'bengaliDigits';
+
+  @override
+  bool build() {
+    final on = ref.watch(sharedPrefsProvider).getBool(_key) ?? true;
+    L10n.setBengaliDigits(on);
+    return on;
+  }
+
+  void set(bool value) {
+    L10n.setBengaliDigits(value);
+    state = value;
+    ref.read(sharedPrefsProvider).setBool(_key, value);
+  }
+}
+
+final bengaliDigitsProvider = NotifierProvider<BengaliDigitsNotifier, bool>(BengaliDigitsNotifier.new);
+
 /// Remembers that the notification permission question was already shown once.
 const reminderPermissionAskedKey = 'reminderPermissionAsked';
+
+/// The version whose "what's new" this phone has already shown, as `2.0.0+15`. Missing on an
+/// install that was updated from an older version.
+const lastSeenVersionKey = 'lastSeenVersion';
+
+/// Set when the welcome steps have just been finished: the next screen offers the quick tour.
+const tourPendingKey = 'tourPending';
+
+/// The running version, the way [lastSeenVersionKey] stores it.
+const currentVersionLabel = '$appVersion+$appBuildNumber';
 
 /// True once the welcome screens have been completed or skipped.
 const onboardingDoneKey = 'onboardingDone';
@@ -83,7 +242,11 @@ class OnboardingDoneNotifier extends Notifier<bool> {
 
   void finish() {
     state = true;
-    ref.read(sharedPrefsProvider).setBool(onboardingDoneKey, true);
+    final prefs = ref.read(sharedPrefsProvider);
+    prefs.setBool(onboardingDoneKey, true);
+    // A brand-new user is offered the quick tour (not "what's new", which is for people updating).
+    prefs.setString(lastSeenVersionKey, currentVersionLabel);
+    prefs.setBool(tourPendingKey, true);
   }
 }
 

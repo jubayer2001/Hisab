@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../app/theme.dart';
+import '../../l10n/text.dart';
 
 /// A rounded surface for a group of related content. Uses a Material (not a coloured box)
 /// so taps show their ripple.

@@ -1,5 +1,5 @@
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -13,6 +13,7 @@ import '../../data/db/app_database.dart';
 import '../../data/db/tables.dart';
 import '../../data/providers.dart';
 import 'entry_actions.dart';
+import '../../l10n/text.dart';
 
 /// Opens the add sheet, or the edit sheet when [editing] is given.
 Future<void> showAddEntrySheet(
@@ -222,7 +223,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
         SnackBar(
           content: Text('Deleted ${formatTaka(editing.entry.amountPoisha)} · ${editing.category.name}'),
           duration: const Duration(seconds: 5),
-          action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntry(editing.entry)),
+          action: SnackBarAction(label: tr('Undo'), onPressed: () => db.restoreEntry(editing.entry)),
         ),
       );
   }
@@ -265,7 +266,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
                           child: Text('Edit ${_isExpense ? 'expense' : 'income'}', style: theme.textTheme.titleLarge),
                         ),
                         IconButton(
-                          tooltip: 'Delete',
+                          tooltip: tr('Delete'),
                           onPressed: _delete,
                           icon: Icon(Icons.delete_outline_rounded, color: colors.spending),
                         ),

@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/security_providers.dart';
 import '../../app/theme.dart';
 import '../../core/money.dart';
+import '../../l10n/text.dart';
 
 /// Wraps the whole app. While the app lock is showing, nothing of the app is visible, tappable or
 /// readable by a screen reader, and the phone's unlock prompt opens by itself.

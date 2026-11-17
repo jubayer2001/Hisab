@@ -68,6 +68,11 @@ jobs:
           # Anyone can compare this against the file they downloaded to be sure it is untouched.
           sha256sum Hisab.apk | tee Hisab.apk.sha256
           {
+            # A hand-written note for this version, if there is one, comes first.
+            if [ -f "docs/release-notes/${GITHUB_REF_NAME}.md" ]; then
+              cat "docs/release-notes/${GITHUB_REF_NAME}.md"
+              echo
+            fi
             echo "### Verify your download"
             echo
             echo "SHA-256 of Hisab.apk:"

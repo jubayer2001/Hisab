@@ -77,3 +77,23 @@ String periodLabel(Period p, {DateTime? now}) {
       return '${p.start.year}';
   }
 }
+
+/// How many [type] periods away from today the period containing [date] is (0 is the current
+/// one, -1 the one before). The inverse of [shiftPeriod]; used by the calendar picker.
+int periodOffset(PeriodType type, DateTime date, DateTime today) {
+  final d = dateOnly(date);
+  final t = dateOnly(today);
+  switch (type) {
+    case PeriodType.day:
+      return d.difference(t).inDays;
+    case PeriodType.week:
+      // Whole weeks between the two week starts (the difference is a multiple of 7 days; the
+      // rounding only guards against a daylight-saving hour in the middle).
+      final days = periodFor(PeriodType.week, d).start.difference(periodFor(PeriodType.week, t).start).inHours / 24;
+      return (days / 7).round();
+    case PeriodType.month:
+      return (d.year - t.year) * 12 + d.month - t.month;
+    case PeriodType.year:
+      return d.year - t.year;
+  }
+}

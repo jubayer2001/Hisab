@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -12,6 +12,7 @@ import '../../data/db/tables.dart';
 import '../../data/logic/planning.dart';
 import '../../data/providers.dart';
 import 'recurring_screen.dart';
+import '../../l10n/text.dart';
 
 /// Home cards for recurring bills and income that are due: one tap to add, or skip this month.
 class DueBillsSection extends ConsumerWidget {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/settings_providers.dart';
@@ -15,6 +15,7 @@ import '../../services/cloud_backup.dart';
 import '../../services/cloud_sync.dart';
 import '../../services/reminder_providers.dart';
 import '../backup/google_connect.dart';
+import '../../l10n/text.dart';
 
 /// A few short steps shown once, the first time the app opens: a name, an optional monthly
 /// budget, an optional monthly income, the evening reminder, and (when Google sign-in is set

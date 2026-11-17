@@ -106,10 +106,14 @@ extension HisabThemeX on BuildContext {
   HisabColors get hisab => Theme.of(this).extension<HisabColors>()!;
 }
 
-const _fontFamily = 'HindSiliguri';
+const _hindFont = 'HindSiliguri';
+const _bengaliFont = 'NotoSansBengali';
 
-ThemeData buildTheme(Brightness brightness) {
+/// [bengali] picks Noto Sans Bengali (Hind Siliguri stays as the fallback for anything it lacks).
+ThemeData buildTheme(Brightness brightness, {bool bengali = false}) {
   final isDark = brightness == Brightness.dark;
+  final family = bengali ? _bengaliFont : _hindFont;
+  final fallback = bengali ? const [_hindFont] : const <String>[];
 
   final scheme = ColorScheme.fromSeed(
     seedColor: TealMist.primary,
@@ -135,7 +139,8 @@ ThemeData buildTheme(Brightness brightness) {
   final base = ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    fontFamily: _fontFamily,
+    fontFamily: family,
+    fontFamilyFallback: fallback,
     scaffoldBackgroundColor: scheme.surface,
     extensions: [isDark ? HisabColors.dark : HisabColors.light],
   );
@@ -156,7 +161,7 @@ ThemeData buildTheme(Brightness brightness) {
       elevation: 0,
       centerTitle: false,
       titleTextStyle: base.textTheme.titleLarge?.copyWith(
-        fontFamily: _fontFamily,
+        fontFamily: family,
         fontWeight: FontWeight.w700,
         color: scheme.onSurface,
       ),
@@ -175,7 +180,7 @@ ThemeData buildTheme(Brightness brightness) {
       height: 68,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
-          fontFamily: _fontFamily,
+          fontFamily: family,
           fontSize: 12,
           fontWeight: states.contains(WidgetState.selected) ? FontWeight.w600 : FontWeight.w500,
           color: states.contains(WidgetState.selected) ? scheme.primary : scheme.onSurfaceVariant,
@@ -186,7 +191,7 @@ ThemeData buildTheme(Brightness brightness) {
       style: FilledButton.styleFrom(
         minimumSize: const Size(64, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        textStyle: const TextStyle(fontFamily: _fontFamily, fontWeight: FontWeight.w700, fontSize: 16),
+        textStyle: TextStyle(fontFamily: family, fontWeight: FontWeight.w700, fontSize: 16),
       ),
     ),
     snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),

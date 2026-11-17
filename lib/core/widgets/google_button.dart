@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import '../../l10n/text.dart';
 
 /// "Sign in with Google": a plain outlined button with the blue G, used on the welcome step
 /// and on the Account screen so both look the same.

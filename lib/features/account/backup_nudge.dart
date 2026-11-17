@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/profile_providers.dart';
 import '../../app/theme.dart';
 import '../backup/google_connect.dart';
+import '../../l10n/text.dart';
 
 /// A gentle card on Home for someone who has data but no Google backup. "Not now" hides it
 /// for a week; the amber badge on the profile icon stays until they sign in.

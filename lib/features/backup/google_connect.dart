@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -6,6 +6,7 @@ import '../../app/theme.dart';
 import '../../data/backup.dart';
 import '../../services/cloud_backup.dart';
 import '../../services/cloud_sync.dart';
+import '../../l10n/text.dart';
 
 /// What came of asking someone to sign in with Google.
 enum GoogleConnectResult {

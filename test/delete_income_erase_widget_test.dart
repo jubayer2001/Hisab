@@ -362,7 +362,7 @@ void main() {
 
     testWidgets('Home announces it, and "Dismiss" closes the note', (tester) async {
       await createSalary(tester);
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
 
       expect(find.textContaining('Salary ৳45,000 added today'), findsOneWidget);
       expect(find.text('Different this month?'), findsOneWidget);
@@ -374,7 +374,7 @@ void main() {
 
     testWidgets('Change: only this month leaves the usual amount alone', (tester) async {
       await createSalary(tester);
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
       await tester.tap(find.text('Change'));
       await h.settle(tester);
 
@@ -389,7 +389,7 @@ void main() {
 
     testWidgets('Change: from now on updates the usual amount too', (tester) async {
       await createSalary(tester);
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
       await tester.tap(find.text('Change'));
       await h.settle(tester);
 
@@ -406,7 +406,7 @@ void main() {
 
     testWidgets('"Didn\'t receive it" removes this month\'s entry, with Undo, and it stays removed', (tester) async {
       await createSalary(tester);
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
       await tester.tap(find.text('Change'));
       await h.settle(tester);
       await tester.tap(find.text('Didn\'t receive it this month'));

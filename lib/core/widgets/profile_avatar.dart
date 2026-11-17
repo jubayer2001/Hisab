@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/profile_providers.dart';
 import '../../app/settings_providers.dart';
 import '../../app/theme.dart';
+import '../../l10n/text.dart';
 
 /// The round profile icon: the first letter of the person's name, in their chosen colour,
 /// with a small badge that says whether their data is backed up. Tapping opens Account.

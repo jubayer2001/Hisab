@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/security_providers.dart';
@@ -7,6 +7,7 @@ import '../../core/widgets/app_card.dart';
 import '../../data/db/database_security.dart';
 import '../../services/cloud_backup.dart';
 import '../../services/cloud_sync.dart';
+import '../../l10n/text.dart';
 
 /// Where the person's money details are, who can see them, and the switches that protect them.
 /// Written for someone who just wants to know "is my income safe in here?".

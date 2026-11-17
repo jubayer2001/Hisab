@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -11,6 +11,7 @@ import '../../core/widgets/amount_field.dart';
 import '../../core/widgets/sheet.dart';
 import '../../data/db/app_database.dart';
 import '../../data/providers.dart';
+import '../../l10n/text.dart';
 
 const _noteKey = 'incomeNoteDismissed';
 
@@ -97,7 +98,7 @@ class IncomeNotes extends ConsumerWidget {
                     child: const Text('Change'),
                   ),
                   IconButton(
-                    tooltip: 'Dismiss',
+                    tooltip: tr('Dismiss'),
                     visualDensity: VisualDensity.compact,
                     icon: Icon(Icons.close_rounded, size: 20, color: colors.muted),
                     onPressed: () => ref.read(dismissedIncomeNotesProvider.notifier).dismiss(item.entry.id),
@@ -167,7 +168,7 @@ class _ChangeIncomeSheetState extends ConsumerState<_ChangeIncomeSheet> {
         SnackBar(
           content: Text('Removed $name for this month'),
           duration: const Duration(seconds: 6),
-          action: SnackBarAction(label: 'Undo', onPressed: () => db.restoreEntry(entry)),
+          action: SnackBarAction(label: tr('Undo'), onPressed: () => db.restoreEntry(entry)),
         ),
       );
   }

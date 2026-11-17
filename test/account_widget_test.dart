@@ -38,7 +38,7 @@ void main() {
 
     testWidgets('not signed in: amber badge, and a card once there is data worth protecting', (tester) async {
       h.cloud.configured = true;
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
 
       // Nothing to protect yet: the badge is there, the card is not.
       expect(find.byIcon(Icons.priority_high_rounded), findsOneWidget);
@@ -51,7 +51,7 @@ void main() {
 
     testWidgets('"Not now" hides the card but keeps the badge, and it stays hidden', (tester) async {
       h.cloud.configured = true;
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
       await addToday(tester);
 
       await tester.tap(find.text('Not now'));
@@ -67,7 +67,7 @@ void main() {
 
     testWidgets('"Sign in" on the card signs in, and the badge turns into a tick', (tester) async {
       h.cloud.configured = true;
-      await h.pumpApp(tester);
+      await h.pumpApp(tester, prefs: homeNoticesOn);
       await addToday(tester);
 
       await tester.tap(find.text('Sign in'));
@@ -298,6 +298,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(FilledButton, 'Get started'));
       await h.settle(tester);
+      await h.skipTour(tester);
       expect(find.text('Spent today'), findsOneWidget);
       expect(h.cloud.uploads, 0, reason: 'no account means nothing is ever sent');
       expect(find.byIcon(Icons.priority_high_rounded), findsOneWidget, reason: 'the badge keeps reminding them');
@@ -331,6 +332,7 @@ void main() {
 
       await tester.tap(find.widgetWithText(FilledButton, 'Get started'));
       await h.settle(tester);
+      await h.skipTour(tester);
       expect(find.text('Spent today'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
       expect(h.cloud.uploads, 1);

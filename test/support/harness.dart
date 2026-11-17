@@ -20,6 +20,10 @@ import 'package:hisab/services/notifications.dart';
 import 'package:hisab/services/reminder_providers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Preferences that show the Home notices (backup, income, budget, bills and Dhar cards).
+/// They are hidden by default, so tests that look for one on Home pass this to [Harness.pumpApp].
+const homeNoticesOn = <String, Object>{'homeNotices': true};
+
 /// Stands in for the Android notification plugin and records what would be scheduled.
 class FakeNotificationService extends NotificationService {
   final List<({bool enabled, int minutes, String? todayBody, bool spentToday})> syncs = [];
@@ -228,6 +232,7 @@ class Harness {
   Future<void> pumpApp(
     WidgetTester tester, {
     bool onboarded = true,
+    bool guideSeen = true,
     Map<String, Object> prefs = const {},
     EncryptionState encryption = EncryptionState.encrypted,
   }) async {
@@ -239,6 +244,8 @@ class Harness {
     SharedPreferences.setMockInitialValues({
       if (onboarded) reminderPermissionAskedKey: true,
       if (onboarded) onboardingDoneKey: true,
+      // Without this the "what's new" pager would open on top of Home in every test.
+      if (onboarded && guideSeen) lastSeenVersionKey: currentVersionLabel,
       ...prefs,
     });
     final sharedPrefs = await SharedPreferences.getInstance();
@@ -299,6 +306,13 @@ class Harness {
   /// Every piece of text currently built on screen, for debugging a failing test.
   String screenTexts(WidgetTester tester) =>
       tester.widgetList<Text>(find.byType(Text)).map((w) => w.data).whereType<String>().join(' | ');
+
+  /// A person who has just finished the welcome steps is offered the quick tour; this answers "Not now".
+  Future<void> skipTour(WidgetTester tester) async {
+    if (find.text('Show me around').evaluate().isEmpty) return;
+    await tester.tap(find.text('Not now'));
+    await settle(tester);
+  }
 
   /// Opens a screen from the "More" tab.
   Future<void> openFromMore(WidgetTester tester, String tileTitle) async {

@@ -20,6 +20,7 @@ class DonutChart extends StatelessWidget {
     this.size = 150,
     this.thickness = 22,
     this.center,
+    this.onSliceTap,
   });
 
   final List<DonutSlice> slices;
@@ -28,17 +29,56 @@ class DonutChart extends StatelessWidget {
   final double thickness;
   final Widget? center;
 
+  /// Called with the index of the slice that was tapped (taps on the hole are ignored).
+  final ValueChanged<int>? onSliceTap;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _DonutPainter(slices: slices, trackColor: trackColor, thickness: thickness),
-        child: Center(child: center),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapUp: onSliceTap == null
+            ? null
+            : (details) {
+                final index = donutSliceAt(
+                  details.localPosition,
+                  size: size,
+                  thickness: thickness,
+                  values: [for (final s in slices) s.value],
+                );
+                if (index != null) onSliceTap!(index);
+              },
+        child: CustomPaint(
+          painter: _DonutPainter(slices: slices, trackColor: trackColor, thickness: thickness),
+          child: Center(child: center),
+        ),
       ),
     );
   }
+}
+
+/// Which slice of a donut a tap at [position] landed on, or null for the hole, the outside or
+/// an empty chart. Slices start at 12 o'clock and run clockwise, as they are painted.
+int? donutSliceAt(Offset position, {required double size, required double thickness, required List<double> values}) {
+  final total = values.fold<double>(0, (s, v) => s + v);
+  if (total <= 0) return null;
+  final centre = Offset(size / 2, size / 2);
+  final offset = position - centre;
+  final distance = offset.distance;
+  // A little slack either side of the ring makes a thumb-sized target.
+  const slack = 6.0;
+  if (distance < size / 2 - thickness - slack || distance > size / 2 + slack) return null;
+
+  var angle = math.atan2(offset.dy, offset.dx) + math.pi / 2;
+  if (angle < 0) angle += math.pi * 2;
+  var end = 0.0;
+  for (var i = 0; i < values.length; i++) {
+    end += values[i] / total * math.pi * 2;
+    if (angle <= end) return i;
+  }
+  return values.length - 1;
 }
 
 class _DonutPainter extends CustomPainter {

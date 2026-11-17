@@ -4,7 +4,7 @@ publish_to: 'none'
 
 # The release workflow overrides the name (from the git tag) but NOT the +N build number.
 # Raise +N with every build installed on a phone: Android refuses to go to a lower number.
-version: 1.1.0+12
+version: 2.0.0+15
 
 environment:
   sdk: ^3.13.5
@@ -56,4 +56,14 @@ flutter:
         - asset: assets/fonts/HindSiliguri-SemiBold.ttf
           weight: 600
         - asset: assets/fonts/HindSiliguri-Bold.ttf
+          weight: 700
+    - family: NotoSansBengali
+      fonts:
+        - asset: assets/fonts/NotoSansBengali-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansBengali-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansBengali-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansBengali-Bold.ttf
           weight: 700
